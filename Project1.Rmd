@@ -1,0 +1,86 @@
+---
+title: "Project1"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Make Rmd stan compatible
+library(cmdstanr)
+cmdstanr::register_knitr_engine()
+```
+
+# 2 RStan
+
+We consider the example of George et al. 
+
+```{r data}
+# Define list with data input
+data = list(
+    N=10, 
+    y=c(5,1,5,14,3,19,1,1,4,22), 
+    t=c(94.3,15.7,62.9,126.0,5.24,31.4,1.05,1.05,2.1,10.5)
+    )
+```
+
+Define a `stan` model.
+
+```{stan output.var="pump"}
+// saved as pump.stan
+
+data{
+  int<lower=0> N;       // number of pumps
+  int<lower=0> y[N];             // number of failures
+  real<lower=0> t[N];   // operation times of pumps
+}
+
+parameters{
+  real<lower=0> lambda[N];
+  real<lower=0> alpha;
+  real<lower=0> beta;
+}
+
+transformed parameters{
+  real<lower=0> eta[N];
+  for (i in 1:N)
+    eta[i] = lambda[i] * t[i];
+}
+
+model{
+  target += exponential_lpdf( alpha | 1.0 );      // hyper-prior log-density
+  target += gamma_lpdf( beta | 0.1, 1.0 );        // hyper-prior log-density
+  target += gamma_lpdf( lambda | alpha, beta );   // prior log-density
+  target += poisson_lpmf( y | eta );         // likelihood log-density
+}
+
+```
+
+Fit the model using stan.
+
+```{r}
+# Load the RStan package
+library(rstan)
+
+# Fit the model using stan
+fit <- stan(
+  "pump.stan",
+  data = data,
+  chains = 4,
+  warmup = 1000,
+  iter = 2000,
+  seed = 1,
+  control = list(adapt_delta = 0.9)
+)
+
+print(fit)
+
+```
+
+For the effective sample size see `n_eff` in the printed output. FB: More comments.
+
+
+```{r}
+plot(fit)
+traceplot(fit, pars = c("lambda"), inc_warmup = TRUE, nrow = 2)
+```
