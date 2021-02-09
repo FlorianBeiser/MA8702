@@ -13,7 +13,10 @@ cmdstanr::register_knitr_engine()
 
 # 2 RStan
 
-We consider the example of George et al. 
+We consider the example of George et al. For a set of $N=10$ pumps we observe the values
+- $y_i$: number of times that pump $i$ failed
+- $t_i$: operation time of pump $i$
+whose data is used as input in the next chunk.
 
 ```{r data}
 # Define list with data input
@@ -24,14 +27,16 @@ data = list(
     )
 ```
 
-Define a `stan` model.
+The numbers of failures per pump are modelled by a $Poisson(\lambda_i t_i)$ likelihood together with a $Gamma(\alpha,\beta)$ distributed prior for the $\lambda_i$ with always $i=1,\dots,N$. Additionally,  the hyper-prior for $\alpha$ is $Exp(1.0)$ and for $\beta$ it is $Gamma(0.1,1.0)$ respectively. Therewith, we define a `stan` model. 
+
+NB! We do not use a separate `.stan`-file but generate the model named "pump" directly in the environment. The syntax for the model generation is exactly the same as in files, but later the function call for the model fit deviates! The `pump.stan` file is only included for the seek of accordance with the exercise sheet.
 
 ```{stan output.var="pump"}
-// saved as pump.stan
+// generates a stan model named pump in the current environment
 
 data{
   int<lower=0> N;       // number of pumps
-  int<lower=0> y[N];             // number of failures
+  int<lower=0> y[N];    // number of failures
   real<lower=0> t[N];   // operation times of pumps
 }
 
@@ -51,20 +56,22 @@ model{
   target += exponential_lpdf( alpha | 1.0 );      // hyper-prior log-density
   target += gamma_lpdf( beta | 0.1, 1.0 );        // hyper-prior log-density
   target += gamma_lpdf( lambda | alpha, beta );   // prior log-density
-  target += poisson_lpmf( y | eta );         // likelihood log-density
+  target += poisson_lpmf( y | eta );              // likelihood log-density
 }
 
 ```
 
-Fit the model using stan.
+We sample from the posterior distribution using `stan`.
 
-```{r}
+NB! The function call is different since we have already a stan model called "pump" in the cache and can sample from that directly.
+
+```{r fitting}
 # Load the RStan package
 library(rstan)
 
 # Fit the model using stan
-fit <- stan(
-  "pump.stan",
+fit <- sampling(
+  pump,
   data = data,
   chains = 4,
   warmup = 1000,
@@ -72,15 +79,28 @@ fit <- stan(
   seed = 1,
   control = list(adapt_delta = 0.9)
 )
+```
 
+Finally, we investigate the results of the stan fit. 
+
+```{r checking}
+# Printing results of fit
 print(fit)
 
+# Plotting results of fit
+# (Due to different scales we separate the plots)
+plot(fit, pars="lambda")
+plot(fit, pars=c("alpha", "beta"))
+plot(fit, pars="eta")
+
+traceplot(fit, pars="lambda", inc_warmup=TRUE, nrow=2)
+traceplot(fit, pars=c("alpha","beta"), inc_warmup=TRUE, nrow=2)
+traceplot(fit, pars="eta", inc_warmup=TRUE, nrow=2)
 ```
 
-For the effective sample size see `n_eff` in the printed output. FB: More comments.
+From the print output of the fitted model, we analyse the effective sample size `n_eff`. With only 4.000 post-warmup draws in total, for the $\lambda$ (and $\eta$) the effective samples size is around 5.000 and thereby surprisingly higher as the actual number of samples! In contrast for $\alpha$ and $\beta$, the effective sample size is only around 2500 and 3000, respectively, such that the quality of those samples is not as good as for the oother quantities. 
+
+In the trace plots for $\lambda$ (and $eta$) we see that the state space is explored very effectively throughout the entire chains. Maybe for $i\in\{5,7,9\}$ the range of lower probability is not perfectly covered, but that is hard/impossible to say without further histograms. In general, we can assume that the chains reached a behaviour of the limit distribution already after a few dozen steps.
+For $\alpha$ and $\beta$ we observe some higher autocorrelation and a less effective exploration of the target space. For a few dozen steps the sampels appear to remain close before the next jump comes, what is an undesired behavior.
 
 
-```{r}
-plot(fit)
-traceplot(fit, pars = c("lambda"), inc_warmup = TRUE, nrow = 2)
-```
