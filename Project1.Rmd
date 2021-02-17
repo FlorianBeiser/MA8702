@@ -148,7 +148,7 @@ mcmc <- function(x0, n, proposal_func, acceptance_func, dens) {
   # go through n itearations
   for (i in 1:n) {
     # get a new proposal for x
-    x_prop <- proposal_func(x_old)
+    x_prop <- proposal_func(x_old, dens)
     # compute the acceptance prob alpha
     alpha <- acceptance_func(x_prop, x_old, dens)
     alphas[i] = alpha
@@ -236,7 +236,7 @@ library(mvtnorm)
 
 # Return:
 # x_prop = proposed state [x_1_prop, x_2_prop]
-RWproposal <- function(x_old){
+RWproposal <- function(x_old, dens){
   x_prop = c(rmvnorm(1, x_old, sigma**2 * diag(1,2,2)))
   return(x_prop)
 }
@@ -323,7 +323,7 @@ Finally, we try the random walk MH for the volcano shaped density.
 
 ```{r RandomWalk3, eval = F, fig.height=4, fig.width=12}
 ##############################
-# Testing Random Walk for Multimodal
+# Testing Random Walk for Volcano
 
 # Tuning parameters
 sigma = 0.1
@@ -370,7 +370,7 @@ library(mvtnorm)
 
 # Return:
 # Lgrad = grad (log (dens(x_old)))
-Lgrad <- function(x_old){
+Lgrad <- function(x_old, dens){
   Lgrad = rep(0,length(x_old))
   h = 1e-3
   e1 = c(1,0)
@@ -388,8 +388,8 @@ Lgrad <- function(x_old){
 
 # Return:
 # x_prop = proposed state [x_1_prop, x_2_prop]
-Lproposal <- function(x_old){
-  x_prop =c(rmvnorm(1, x_old + sigma**2/2 * Lgrad(x_old), sigma**2 *diag(1,2,2))) 
+Lproposal <- function(x_old, dens){
+  x_prop =c(rmvnorm(1, x_old + sigma**2/2 * Lgrad(x_old, dens), sigma**2 *diag(1,2,2))) 
   return(x_prop)
 }
 
@@ -403,8 +403,8 @@ Lproposal <- function(x_old){
 
 # Return:
 # f = Q(x|y)
-dLproposal <- function(x,y){
-  f = dmvnorm(x, y + sigma**2/2 * Lgrad(y), sigma**2 *diag(1,2,2))
+dLproposal <- function(x,y, dens){
+  f = dmvnorm(x, y + sigma**2/2 * Lgrad(y, dens), sigma**2 *diag(1,2,2))
   return(f)
 }
 
@@ -420,7 +420,7 @@ dLproposal <- function(x,y){
 # Return:
 # alpha = acceptance probability (numeric)
 Lacceptance <- function(x_prop, x_old, dens){
-  alpha = min(1, dLproposal(x_old, x_prop)/dLproposal(x_prop,x_old) * dens(x_prop)/dens(x_old))
+  alpha = min(1, dLproposal(x_old, x_prop, dens)/dLproposal(x_prop,x_old, dens) * dens(x_prop)/dens(x_old))
   return(alpha)
 }
 ```
@@ -429,7 +429,7 @@ Lacceptance <- function(x_prop, x_old, dens){
 
 We first test the Langevin MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin1, eval = F, fig.height=4, fig.width=12}
+```{r Langevin1, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Gaussian
 
@@ -458,7 +458,7 @@ Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the
 
 We continue with application of the Langevin MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin2, eval = F, fig.height=4, fig.width=12}
+```{r Langevin2, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Multimodal
 
@@ -487,9 +487,9 @@ For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the
 
 Finally, we try the Langevin MH for the volcano shaped density.
 
-```{r Langevin3, eval = F, fig.height=4, fig.width=12}
+```{r Langevin3, fig.height=4, fig.width=12}
 ##############################
-# Testing Langevin for Multimodal
+# Testing Langevin for Volcano
 
 # Tuning parameters
 sigma = 0.25
@@ -536,7 +536,7 @@ HMC_acceptance <- function(x_prop, x_old, dens){
     return(alpha)
 }
 
-HMC_proposal <- function(x_old){
+HMC_proposal <- function(x_old, dens){
     x <- x_old
     p <- rnorm(length(x), 0, 1)
     p_old <- p
@@ -572,121 +572,152 @@ dU <- function(x_old){
     }
     return(du)
 }
-
 ```
 
 ### Standard Gaussian
 
-We first test the Langevin MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
+We first test the Hamiltonaian MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
 ```{r hmc1, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for Gaussian
-dens = myGaussian
+
 # Tuning parameters
+<<<<<<< HEAD
 x0 = c(0,0)
 n = 2000
+=======
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 L = 10
-
 delta = 0.1
 K_old = 0 
 K_prop = 0
-trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
 MCMCplots(trace1)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+=======
+trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 MCMCplots(trace2)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
 MCMCplots(trace3)
 
 
+=======
+trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+MCMCplots(trace4)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 ```
-Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the asymptotically optimal range, the trace evolves to slow and with too high correlation. For $\sigma=0.75$ the target density is replicated - the autocorrelation decreases and the explorance is at least acceptable. Already for $\sigma=1.0$ the acceptance rate is too small and the chain pauses too long to explore the space.
+
 
 
 ### Multimodal
 
-We continue with application of the Langevin MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
+We continue with application of the Hamiltonian MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
 ```{r hmc2, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for Multimodal
 dens = myMultimodal
 # Tuning parameters
-x0 = c(0,0)
-n = 10000
-L = 10
 
+L = 10
 delta = 0.1
 K_old = 0 
 K_prop = 0
-trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
 MCMCplots(trace1)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+=======
+trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 MCMCplots(trace2)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
 MCMCplots(trace3)
 
+=======
+trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace4)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 ```
-For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the local maxima of the multimodal dsitribution too long and hence does explore the other modes too badly. For higher parameters $\sigma\geq1.0$ the chains reduce their autocorrelation and start to explore all modes. 
 
 
 ### Volcano
 
-Finally, we try the Langevin MH for the volcano shaped density.
+Finally, we try the Hamiltonian MH for the volcano shaped density.
 
 ```{r hmc3, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for volcano
-dens = myVolcano
-# Tuning parameters
-x0 = c(0,0)
-n = 10000
-L = 10
 
+# Tuning parameters
+L = 10
 delta = 0.1
 K_old = 0 
 K_prop = 0
-trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
 MCMCplots(trace1)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
+=======
+trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 MCMCplots(trace2)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
+<<<<<<< HEAD
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, dens)
 MCMCplots(trace3)
 
+=======
+trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace4)
+>>>>>>> 3486a8ecc19e02b3208bf5da512cfb19c9f938fe
 ```
-For resonably big choices of $\sigma=1.5$ a chain can be generated which does explore the entire ring with small autocorrelation and an acceptance rate close to the asymptotic optimum. For too small and too big choices the same as for the Random Walk holds: Only a fraction of the ring is explored for too small $\sigma=0.25$, then the chains starts to walk along the circle for $\sigma=0.5$. For too big proposal spread with $\sigma=2.5$ too many large steps will be rejected. 
-
-
-### Conclusion
-
-We saw that the MALA algorithm is very sensitive to small changes in tuning parameter $\sigma$. For too small choices it tends to get stuck in local maxima, what is a known issue and we realized that behaviour here as well. 
-
-For the Gaussian distribution, the Langevin MCMC version works nicely, but the Random Walk does not perform bad here either. In the Multimodal case, the Random walk with suitable proposal spread does not get stuck in a maximum as the Langevin did. The circular density without clear mode is difficult for both MCMC versions, but the Langevin can be parametrised to handle is better. However, in general it depends a lot on the proper tuning for both.
-
 
 
 
@@ -777,10 +808,12 @@ print(fit)
 
 # Plotting results of fit
 # (Due to different scales we separate the plots)
+par(mfrow=c(1,3))
 plot(fit, pars="lambda")
 plot(fit, pars=c("alpha", "beta"))
 plot(fit, pars="eta")
 
+par(mfrow=c(1,3))
 traceplot(fit, pars="lambda", inc_warmup=TRUE, nrow=2)
 traceplot(fit, pars=c("alpha","beta"), inc_warmup=TRUE, nrow=2)
 traceplot(fit, pars="eta", inc_warmup=TRUE, nrow=2)
