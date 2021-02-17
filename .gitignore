@@ -37,3 +37,15 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Rmd 
+Project1_files/*
+Project1_cache/*
+
+# Binaries
+*.pdf
+
+# TeX temps 
+*.log
+*.aux
+
