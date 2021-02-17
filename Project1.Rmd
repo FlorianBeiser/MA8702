@@ -173,6 +173,7 @@ These implementation is not tweaked for optimal performance, e.g. log-scale coul
 # - Trace plots
 # - Autocorrelation
 MCMCplots <- function(trace, surface=FALSE){
+  library(MASS)
   # Generating empirical densitty
   kd = MASS::kde2d(x=trace$x[,1], y=trace$x[,2], n=101, lims=c(-5,5,-5,5))
   

@@ -49,3 +49,6 @@ Project1_cache/*
 *.log
 *.aux
 
+# local file
+.DS_Store
+
