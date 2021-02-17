@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Make Rmd stan compatible
 # library(cmdstanr)
-cmdstanr::register_knitr_engine()
+# cmdstanr::register_knitr_engine()
 ```
 
 
@@ -533,7 +533,7 @@ K <- function(p){
     return(sum(t(p) %*% p) / 2)
 }
 
-# Gaussian
+# Gaussian potential energy
 U1 <- function(x){
     U = t(x) %*% solve(matrix(c(1,0.9,0.9,1), nrow=2)) %*% x
     return(U)
@@ -544,7 +544,7 @@ dU1 <- function(x){
     return(dU)
 }
 
-# Multimodal
+# Multimodal potential energy
 U2 <- function(x){
     mu1 = c(-1.5,-1.5)
     mu2 = c(1.5,1.5)
@@ -565,7 +565,7 @@ dU2 <- function(x){
     return(dU)
 }
 
-# Volcano
+# Volcano potential energy
 U3 <- function(x){
     U = -1/2 * t(x) %*% x * log(t(x) %*% x + 0.25)
     return(U)
