@@ -572,7 +572,7 @@ dU <- function(x_old){
 
 ### Standard Gaussian
 
-We first test the Hamiltonaian MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
+We first test the Hamiltonaian MH for the Gaussian with different tuning parameters $\delta$ and $L$ for step sizes and step numbers in the leapfrog integration algorithm. 
 
 ```{r hmc1, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
@@ -602,11 +602,12 @@ MCMCplots(trace3)
 
 ```
 
+For the standard normal case, when $\delta = 0.3, L = 10$ gives reasonably good results on the target distribution. It can be shown also that Hamiltonian MH outperforms both random walk and langevin MH in terms of its independent samples and well mixing in the target space.
 
 
 ### Multimodal
 
-We continue with application of the Hamiltonian MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
+We continue with application of the Hamiltonian MH to the Multimodal with different tuning parameters $\delta$ and $L$ for step sizes and step numbers in the leapfrog integration algorithm. 
 
 ```{r hmc2, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
@@ -636,6 +637,7 @@ trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
 MCMCplots(trace3)
 
 ```
+Hamiltonian MH in this case is sensitive to the tuning parameters, one can tell that it is easier to get stuck with one modal region when $\delta$ is too small. As one increases the step size, it gets more easier to explore the full target density space. From the autocorrelation plot, it seems that Hamiltonian MH behaves better than the other two in this case as well.
 
 
 ### Volcano
@@ -669,7 +671,7 @@ trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
 MCMCplots(trace3)
 
 ```
-
+In this case, it truly tells where Hamiltonian idea was from, the volcano density is essentially the planet for the algorithm to explore. Hamiltonian MH explores pretty well already when $\delta = 0.3, L = 10$. Better than the other two since it is less independent for those samples generated. 
 
 
 
