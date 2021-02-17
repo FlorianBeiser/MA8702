@@ -442,15 +442,17 @@ sigma = 0.5
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
 MCMCplots(trace2)
 
-sigma = 1.0
+sigma = 0.75
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
 MCMCplots(trace3)
 
-sigma = 1.5
+sigma = 1.0
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
 MCMCplots(trace4)
 
 ```
+Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the asymptotically optimal range, the trace evolves to slow and with too high correlation. For $\sigma=0.75$ the target density is replicated - the autocorrelation decreases and the explorance is at least acceptable. Already for $\sigma=1.0$ the acceptance rate is too small and the chain pauses too long to explore the space.
+
 
 ### Multimodal
 
@@ -465,19 +467,21 @@ sigma = 0.25
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace1)
 
-sigma = 0.5
+sigma = 0.75
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace2)
 
-sigma = 0.75
+sigma = 1.0
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace3)
 
-sigma = 1.0
+sigma = 1.5
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace4)
 
 ```
+For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the local maxima of the multimodal dsitribution too long and hence does explore the other modes too badly. For higher parameters $\sigma\geq1.0$ the chains reduce their autocorrelation and start to explore all modes. 
+
 
 ### Volcano
 
@@ -500,16 +504,19 @@ sigma = 1.5
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
 MCMCplots(trace3)
 
-sigma = 2.0
+sigma = 2.5
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
 MCMCplots(trace4)
 
 ```
+For resonably big choices of $\sigma=1.5$ a chain can be generated which does explore the entire ring with small autocorrelation and an acceptance rate close to the asymptotic optimum. For too small and too big choices the same as for the Random Walk holds: Only a fraction of the ring is explored for too small $\sigma=0.25$, then the chains starts to walk along the circle for $\sigma=0.5$. For too big proposal spread with $\sigma=2.5$ too many large steps will be rejected. 
 
 
 ### Conclusion
 
-Damn it is sensitive to the parameters! :-P
+We saw that the MALA algorithm is very sensitive to small changes in tuning parameter $\sigma$. For too small choices it tends to get stuck in local maxima, what is a known issue and we realized that behaviour here as well. 
+
+For the Gaussian distribution, the Langevin MCMC version works nicely, but the Random Walk does not perform bad here either. In the Multimodal case, the Random walk with suitable proposal spread does not get stuck in a maximum as the Langevin did. The circular density without clear mode is difficult for both MCMC versions, but the Langevin can be parametrised to handle is better. However, in general it depends a lot on the proper tuning for both.
 
 
 
@@ -625,7 +632,11 @@ plot(x[1, ])
 
 
 
+## Conclusion
 
+- Burn-in
+- All require tuning
+- Compare performance
 
 
 
