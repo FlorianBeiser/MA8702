@@ -560,6 +560,7 @@ U <- function(x){
   # U is the potential energy at given location
     return(-log(dens(x)))
 }
+
 dU <- function(x_old){
   # dU gives respective partial derivatives
     du = grad(U, x_old)
@@ -568,10 +569,116 @@ dU <- function(x_old){
     }
     return(du)
 }
+```
 
+### Standard Gaussian
+
+We first test the Hamiltonaian MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
+
+```{r hmc1, fig.height=4, fig.width=12}
+##############################
+# Testing HMC for Gaussian
+
+# Tuning parameters
+L = 10
+delta = 0.1
+K_old = 0 
+K_prop = 0
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
+MCMCplots(trace1)
+
+delta = 0.3
+K_old = 0 
+K_prop = 0
+trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+MCMCplots(trace2)
+
+delta = 0.5
+K_old = 0 
+K_prop = 0
+trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+MCMCplots(trace4)
 ```
 
 
+
+### Multimodal
+
+We continue with application of the Hamiltonian MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
+
+```{r hmc2, fig.height=4, fig.width=12}
+##############################
+# Testing HMC for Multimodal
+dens = myMultimodal
+# Tuning parameters
+
+L = 10
+delta = 0.1
+K_old = 0 
+K_prop = 0
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace1)
+
+delta = 0.3
+K_old = 0 
+K_prop = 0
+trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace2)
+
+delta = 0.5
+K_old = 0 
+K_prop = 0
+trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
+MCMCplots(trace4)
+```
+
+
+### Volcano
+
+Finally, we try the Hamiltonian MH for the volcano shaped density.
+
+```{r hmc3, fig.height=4, fig.width=12}
+##############################
+# Testing HMC for volcano
+
+# Tuning parameters
+L = 10
+delta = 0.1
+K_old = 0 
+K_prop = 0
+trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace1)
+
+delta = 0.3
+K_old = 0 
+K_prop = 0
+trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace2)
+
+delta = 0.5
+K_old = 0 
+K_prop = 0
+trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace3)
+
+delta = 0.7
+K_old = 0 
+K_prop = 0
+trace4 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
+MCMCplots(trace4)
+```
 
 
 
