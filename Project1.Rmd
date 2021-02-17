@@ -172,7 +172,7 @@ These implementation is not tweaked for optimal performance, e.g. log-scale coul
 # - Density plots
 # - Trace plots
 # - Autocorrelation
-MCMCplots <- function(trace, surface=FALSE){
+MCMCplots <- function(trace, sigma=NULL, delta=NULL, L=NULL, surface=FALSE){
   library(MASS)
   # Generating empirical densitty
   kd = MASS::kde2d(x=trace$x[,1], y=trace$x[,2], n=101, lims=c(-5,5,-5,5))
@@ -183,6 +183,8 @@ MCMCplots <- function(trace, surface=FALSE){
     library(plotly)
     plot_ly(x=kd$x, y=kd$y, z=kd$z, type="surface")
   }
+  
+  par(oma=c(0,0,2,0))  
   
   layout(matrix(c(1,1,2,3,4,5), 2, 3))
   
@@ -201,9 +203,16 @@ MCMCplots <- function(trace, surface=FALSE){
   acf(trace$x[,1], main="Autocorrelation for x1")
   acf(trace$x[,2], main="Autocorrelation for x2")
   
-  title(paste("Analysis (tuning parameter sigma=",sigma,
-               "and mean acceptance rate", sum(trace$alphas)/length(trace$alphas),")"), 
-        outer=TRUE)
+  if (!is.null(sigma) ){
+    title(paste("Analysis (tuning parameter sigma=",sigma,
+                 "and mean acceptance rate", sum(trace$alphas)/length(trace$alphas),")"), 
+          outer=TRUE)
+  }
+  else{
+    title(paste("Analysis (tuning parameter delta=",delta,", L=", L,
+                 "and mean acceptance rate", sum(trace$alphas)/length(trace$alphas),")"), 
+          outer=TRUE)
+  }
 }
 
 ```
@@ -265,19 +274,19 @@ We first test the Random Walk MH for the Gaussian with different tuning paramete
 # Tuning parameters
 sigma = 0.1
 trace0 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
-MCMCplots(trace0)
+MCMCplots(trace0, sigma=sigma)
 
 sigma = 0.5 
 trace1 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 1.0
 trace2 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 2.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 ```
 
@@ -295,19 +304,19 @@ We continue with application of the Random Walk MH to the Multimodal with differ
 # Tuning parameters
 sigma = 0.1
 trace1 = mcmc(x0, n, RWproposal, RWacceptance, myMultimodal )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 1.0
 trace2 = mcmc(x0, n, RWproposal, RWacceptance, myMultimodal )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 5.0
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myMultimodal )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 sigma = 10.0
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myMultimodal )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 ```
 
@@ -325,19 +334,19 @@ Finally, we try the random walk MH for the volcano shaped density.
 # Tuning parameters
 sigma = 0.1
 trace1 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 0.5
 trace2 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 1.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 sigma = 2.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 ```
 
@@ -433,19 +442,19 @@ We first test the Langevin MH for the Gaussian with different tuning parameters 
 # Tuning parameters
 sigma = 0.25 
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 0.5 
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 0.75
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 sigma = 1.0
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
-MCMCplots(trace4)
+MCMCplots(trace4, sigma=sigma)
 
 ```
 Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the asymptotically optimal range, the trace evolves to slow and with too high correlation. For $\sigma=0.75$ the target density is replicated - the autocorrelation decreases and the explorance is at least acceptable. Already for $\sigma=1.0$ the acceptance rate is too small and the chain pauses too long to explore the space.
@@ -462,19 +471,19 @@ We continue with application of the Langevin MH to the Multimodal with different
 # Tuning parameters
 sigma = 0.25
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 0.75
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 1.0
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 sigma = 1.5
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
-MCMCplots(trace4)
+MCMCplots(trace4, sigma=sigma)
 
 ```
 For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the local maxima of the multimodal dsitribution too long and hence does explore the other modes too badly. For higher parameters $\sigma\geq1.0$ the chains reduce their autocorrelation and start to explore all modes. 
@@ -491,19 +500,19 @@ Finally, we try the Langevin MH for the volcano shaped density.
 # Tuning parameters
 sigma = 0.25
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
-MCMCplots(trace1)
+MCMCplots(trace1, sigma=sigma)
 
 sigma = 0.75
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
-MCMCplots(trace2)
+MCMCplots(trace2, sigma=sigma)
 
 sigma = 1.5
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
-MCMCplots(trace3)
+MCMCplots(trace3, sigma=sigma)
 
 sigma = 2.5
 trace4 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
-MCMCplots(trace4)
+MCMCplots(trace4, sigma=sigma)
 
 ```
 For resonably big choices of $\sigma=1.5$ a chain can be generated which does explore the entire ring with small autocorrelation and an acceptance rate close to the asymptotic optimum. For too small and too big choices the same as for the Random Walk holds: Only a fraction of the ring is explored for too small $\sigma=0.25$, then the chains starts to walk along the circle for $\sigma=0.5$. For too big proposal spread with $\sigma=2.5$ too many large steps will be rejected. 
@@ -587,19 +596,19 @@ delta = 0.1
 K_old = 0 
 K_prop = 0
 trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
-MCMCplots(trace1)
+MCMCplots(trace1, delta=delta, L=L)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
-MCMCplots(trace2)
+MCMCplots(trace2, delta=delta, L=L)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
-MCMCplots(trace3)
+MCMCplots(trace3, delta=delta, L=L)
 
 ```
 
@@ -623,19 +632,19 @@ delta = 0.1
 K_old = 0 
 K_prop = 0
 trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
-MCMCplots(trace1)
+MCMCplots(trace1, delta=delta, L=L)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
-MCMCplots(trace2)
+MCMCplots(trace2, delta=delta, L=L)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myMultimodal)
-MCMCplots(trace3)
+MCMCplots(trace3, delta=delta, L=L)
 
 ```
 Hamiltonian MH in this case is sensitive to the tuning parameters, one can tell that it is easier to get stuck with one modal region when $\delta$ is too small. As one increases the step size, it gets more easier to explore the full target density space. From the autocorrelation plot, it seems that Hamiltonian MH behaves better than the other two in this case as well.
@@ -657,19 +666,19 @@ delta = 0.1
 K_old = 0 
 K_prop = 0
 trace1 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
-MCMCplots(trace1)
+MCMCplots(trace1, delta=delta, L=L)
 
 delta = 0.3
 K_old = 0 
 K_prop = 0
 trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
-MCMCplots(trace2)
+MCMCplots(trace2, delta=delta, L=L)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
 trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myVolcano)
-MCMCplots(trace3)
+MCMCplots(trace3, delta=delta, L=L)
 
 ```
 In this case, it truly tells where Hamiltonian idea was from, the volcano density is essentially the planet for the algorithm to explore. Hamiltonian MH explores pretty well already when $\delta = 0.3, L = 10$. Better than the other two since it is less independent for those samples generated. 
