@@ -148,7 +148,7 @@ mcmc <- function(x0, n, proposal_func, acceptance_func, dens) {
   # go through n itearations
   for (i in 1:n) {
     # get a new proposal for x
-    x_prop <- proposal_func(x_old)
+    x_prop <- proposal_func(x_old, dens)
     # compute the acceptance prob alpha
     alpha <- acceptance_func(x_prop, x_old, dens)
     alphas[i] = alpha
@@ -236,7 +236,7 @@ library(mvtnorm)
 
 # Return:
 # x_prop = proposed state [x_1_prop, x_2_prop]
-RWproposal <- function(x_old){
+RWproposal <- function(x_old, dens){
   x_prop = c(rmvnorm(1, x_old, sigma**2 * diag(1,2,2)))
   return(x_prop)
 }
@@ -323,7 +323,7 @@ Finally, we try the random walk MH for the volcano shaped density.
 
 ```{r RandomWalk3, fig.height=4, fig.width=12}
 ##############################
-# Testing Random Walk for Multimodal
+# Testing Random Walk for Volcano
 
 # Tuning parameters
 sigma = 0.1
@@ -370,7 +370,7 @@ library(mvtnorm)
 
 # Return:
 # Lgrad = grad (log (dens(x_old)))
-Lgrad <- function(x_old){
+Lgrad <- function(x_old, dens){
   Lgrad = rep(0,length(x_old))
   h = 1e-3
   e1 = c(1,0)
@@ -388,8 +388,8 @@ Lgrad <- function(x_old){
 
 # Return:
 # x_prop = proposed state [x_1_prop, x_2_prop]
-Lproposal <- function(x_old){
-  x_prop =c(rmvnorm(1, x_old + sigma**2/2 * Lgrad(x_old), sigma**2 *diag(1,2,2))) 
+Lproposal <- function(x_old, dens){
+  x_prop =c(rmvnorm(1, x_old + sigma**2/2 * Lgrad(x_old, dens), sigma**2 *diag(1,2,2))) 
   return(x_prop)
 }
 
@@ -403,8 +403,8 @@ Lproposal <- function(x_old){
 
 # Return:
 # f = Q(x|y)
-dLproposal <- function(x,y){
-  f = dmvnorm(x, y + sigma**2/2 * Lgrad(y), sigma**2 *diag(1,2,2))
+dLproposal <- function(x,y, dens){
+  f = dmvnorm(x, y + sigma**2/2 * Lgrad(y, dens), sigma**2 *diag(1,2,2))
   return(f)
 }
 
@@ -420,7 +420,7 @@ dLproposal <- function(x,y){
 # Return:
 # alpha = acceptance probability (numeric)
 Lacceptance <- function(x_prop, x_old, dens){
-  alpha = min(1, dLproposal(x_old, x_prop)/dLproposal(x_prop,x_old) * dens(x_prop)/dens(x_old))
+  alpha = min(1, dLproposal(x_old, x_prop, dens)/dLproposal(x_prop,x_old, dens) * dens(x_prop)/dens(x_old))
   return(alpha)
 }
 ```
@@ -489,7 +489,7 @@ Finally, we try the Langevin MH for the volcano shaped density.
 
 ```{r Langevin3, fig.height=4, fig.width=12}
 ##############################
-# Testing Langevin for Multimodal
+# Testing Langevin for Volcano
 
 # Tuning parameters
 sigma = 0.25
@@ -534,7 +534,7 @@ HMC_acceptance <- function(x_prop, x_old, dens){
     return(alpha)
 }
 
-HMC_proposal <- function(x_old){
+HMC_proposal <- function(x_old, dens){
     x <- x_old
     p <- rnorm(length(x), 0, 1)
     p_old <- p
@@ -574,10 +574,6 @@ dU <- function(x_old){
 
 
 
-
-
-
-```
 
 
 
