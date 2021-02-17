@@ -216,7 +216,7 @@ We will use the same input parameters for all subsequent MCMC calculations, the 
 ```{r MCMCinput}
 # Input
 x0 = c(0,0)
-n = 2000
+n = 20
 ```
 
 
@@ -523,6 +523,8 @@ For the Gaussian distribution, the Langevin MCMC version works nicely, but the R
 ## 1.4 Hamiltonian MH
 
 ```{r Hamiltonian}
+library(numDeriv)
+
 K <- function(p){ # kinetic energy is assmued to be sum(p^2/2)
     return(sum(t(p) %*% p) / 2)
 }
@@ -578,7 +580,7 @@ We first test the Hamiltonaian MH for the Gaussian with different tuning paramet
 ```{r hmc1, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for Gaussian
-
+dens = myGaussian
 # Tuning parameters
 L = 10
 delta = 0.1
@@ -598,12 +600,6 @@ K_old = 0
 K_prop = 0
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
 MCMCplots(trace3)
-
-delta = 0.7
-K_old = 0 
-K_prop = 0
-trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
-MCMCplots(trace4)
 ```
 
 
@@ -652,7 +648,7 @@ Finally, we try the Hamiltonian MH for the volcano shaped density.
 ```{r hmc3, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for volcano
-
+dens = myVolcano
 # Tuning parameters
 L = 10
 delta = 0.1
