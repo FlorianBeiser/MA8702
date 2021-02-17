@@ -527,6 +527,54 @@ K <- function(p){
     return(sum(t(p) %*% p) / 2)
 }
 
+HMC_acceptance <- function(x_prop, x_old, dens){
+    U_old <- -log(dens(x_old))
+    U_prop <- -log(dens(x_prop))
+    alpha = min(1, exp(U_old - U_prop + K_old - K_prop))
+    return(alpha)
+}
+
+HMC_proposal <- function(x_old){
+    x <- x_old
+    p <- rnorm(length(x), 0, 1)
+    p_old <- p
+    res_leapfrog = leapfrog(p, x, delta, L, dU)
+    p = - res_leapfrog[, 1]
+    x = res_leapfrog[, 2]
+    K_old = K(p_old)
+    K_prop = K(p)
+    print(K_old)
+    print(K_prop)
+    return(x)
+}
+
+leapfrog <- function(p, x, delta, L, dU){
+    p <- p - delta * dU(x) / 2
+    for (i in 1:L){
+        x <- x + delta * p
+        if (i != L) p <- p - delta * dU(x)
+    }
+    p <- p - delta * dU(x) / 2
+    return(cbind(p, x))
+}
+
+U <- function(x){
+    return(-log(dens(x)))
+}
+
+dU <- function(x_old){
+    du = grad(U, x_old)
+    if (any(is.nan(du))){
+        du = c(0, 0)
+    }
+    return(du)
+}
+
+```
+
+
+
+
 
 
 ```
