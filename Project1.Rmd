@@ -25,7 +25,7 @@ We consider three different bivariate densities.
 
 We start the project with the visulaisation of the respective densities in $[-5,5]\times[-5,5]$. (Whyever R likes to put more white space left and right of the plots, but the middle areas are still representative.)
 
-```{r plotting}
+```{r plotting, fig.height=4, fig.width=12}
 # Auxilliary variables for visualisation
 x=seq(-5,5,by=0.1)
 y=seq(-5,5,by=0.1)
@@ -34,6 +34,7 @@ z1 = matrix(0, ncol=101, nrow=101)
 z2 = matrix(0, ncol=101, nrow=101)
 z3 = matrix(0, ncol=101, nrow=101)
 
+par(mfrow=c(1,3))
 
 ##############################################
 # 1. Standard Gaussian with Correlation
@@ -57,12 +58,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z1,
-       asp=1,
-       main="Density of Standard Gaussian with Correlation",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z1,
+       asp=1, xlab="x", ylab="y",
+       main="Analytical Density of Standard Gaussian with Correlation")
 
 
 ##############################################
@@ -100,12 +98,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z2,
-       asp=1,
-       main="Density of Multimodal",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z2,
+       asp=1, xlab="x", ylab="y",
+       main="Analytical Density of Multimodal")
 
 
 ##############################################
@@ -125,12 +120,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z3,
-       asp=1,
-       main="Density of Volcano",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z3,
+       asp=1, xlab="x", ylab="y",
+       main="Analystical Density of Volcano")
 
 ```
 
@@ -195,6 +187,8 @@ MCMCplots <- function(trace, surface=FALSE){
     plot_ly(x=kd$x, y=kd$y, z=kd$z, type="surface")
   }
   
+  layout(matrix(c(1,1,2,3,4,5), 2, 3))
+  
   # 2D empirical density plots
   image( x=kd$x, y=kd$y, z=kd$z,
          asp=1, main="Density",
@@ -202,18 +196,27 @@ MCMCplots <- function(trace, surface=FALSE){
   
   # Trace plots
   plot(trace$x[,1], type="l", ylab="x1", 
-     main=paste("Trace of x1 (tuning parameter",sigma,")"))
-  plot(trace$x[,2], type="l", ylab="x1", 
-     main=paste("Trace of x2 (tuning parameter",sigma,")"))
+     main="Trace of x1", ylim=c(-3.5,3.5))
+  plot(trace$x[,2], type="l", ylab="x2", 
+     main="Trace of x2", ylim=c(-3.5,3.5))
 
   # Autocorrelation
-  acf(trace$x[,1], main="Trace plot for x1")
-  acf(trace$x[,2], main="Trace plot for x2")
+  acf(trace$x[,1], main="Autocorrelation for x1")
+  acf(trace$x[,2], main="Autocorrelation for x2")
   
-  # Mean acceptance rate
-  print(paste("The mean acceptance rate is", sum(trace$alphas)/length(trace$alphas)))
+  title(paste("Analysis (tuning parameter sigma=",sigma,
+               "and mean acceptance rate", sum(trace$alphas)/length(trace$alphas),")"), 
+        outer=TRUE)
 }
 
+```
+
+We will use the same input parameters for all subsequent MCMC calculations, the tuning parameters are of course not influenced.
+
+```{r MCMCinput}
+# Input
+x0 = c(0,0)
+n = 2000
 ```
 
 
@@ -222,6 +225,9 @@ MCMCplots <- function(trace, surface=FALSE){
 The random walk MH uses a symmetric $\mathcal{N}(\texttt{x_old},\sigma^2)$ distribution to generate the new proposal. Moreover, the general MH acceptance probability simplifies.
 
 ```{r RandomWalk}
+# Loads
+library(mvtnorm)
+
 # Arguments: 
 # x_old = old state [x_1_old, x_2_old]
 
@@ -255,14 +261,9 @@ RWacceptance <- function(x_prop, x_old, dens){
 
 We first test the Random Walk MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r RandomWalk1}
-
+```{r RandomWalk1, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Gaussian
-
-# Input
-x0 = c(0,0)
-n = 2000
 
 # Tuning parameters
 sigma = 0.1
@@ -273,11 +274,11 @@ sigma = 0.5
 trace1 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
 MCMCplots(trace1)
 
-sigma = 1.5
+sigma = 1.0
 trace2 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
 MCMCplots(trace2)
 
-sigma = 5.0
+sigma = 2.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myGaussian )
 MCMCplots(trace3)
 
@@ -290,14 +291,9 @@ Depending on the choice of the tuning parameter the MCMC algorithms show differe
 
 We continue with application of the Random Walk MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r RandomWalk2}
-
+```{r RandomWalk2, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Multimodal
-
-# Input
-x0 = c(0,0)
-n = 2000
 
 # Tuning parameters
 sigma = 0.1
@@ -325,14 +321,9 @@ For the smallest choice of $\sigma=0.1$ the chain does not really explore all mo
 
 Finally, we try the random walk MH for the volcano shaped density.
 
-```{r RandomWalk3}
-
+```{r RandomWalk3, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Multimodal
-
-# Input
-x0 = c(0,0)
-n = 2000
 
 # Tuning parameters
 sigma = 0.1
@@ -347,7 +338,7 @@ sigma = 1.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
 MCMCplots(trace3)
 
-sigma = 1.5
+sigma = 2.5
 trace3 = mcmc(x0, n, RWproposal, RWacceptance, myVolcano )
 MCMCplots(trace3)
 
@@ -367,6 +358,9 @@ For all examples, there is a range of runing parameters which explore the state-
 Based on the Langevin dynamics and its Euler-Maruyama discretisation, the MALA algorithm uses gradient information to define the proposal density. 
 
 ```{r Langevin}
+# Loads
+library(mvtnorm)
+
 # Arguments:
 # x_old = old state [x_1,x_2]
 # dens = target density (from local variables)
@@ -435,94 +429,94 @@ Lacceptance <- function(x_prop, x_old, dens){
 
 We first test the Langevin MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin1}
-
+```{r Langevin1, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Gaussian
 
-# Input
-x0 = c(0,0)
-n = 2000
-
 # Tuning parameters
-sigma = 0.1
-trace0 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
-MCMCplots(trace0)
-
-sigma = 0.5 
+sigma = 0.25 
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
 MCMCplots(trace1)
 
-sigma = 1.0
+sigma = 0.5 
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
 MCMCplots(trace2)
 
+sigma = 0.75
+trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
+MCMCplots(trace3)
+
+sigma = 1.0
+trace4 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian )
+MCMCplots(trace4)
+
 ```
+Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the asymptotically optimal range, the trace evolves to slow and with too high correlation. For $\sigma=0.75$ the target density is replicated - the autocorrelation decreases and the explorance is at least acceptable. Already for $\sigma=1.0$ the acceptance rate is too small and the chain pauses too long to explore the space.
+
 
 ### Multimodal
 
 We continue with application of the Langevin MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin2}
-
+```{r Langevin2, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Multimodal
-
-# Input
-x0 = c(0,0)
-n = 2000
 
 # Tuning parameters
 sigma = 0.25
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace1)
 
-sigma = 0.5
+sigma = 0.75
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace2)
 
-sigma = 0.75
+sigma = 1.0
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
 MCMCplots(trace3)
 
+sigma = 1.5
+trace4 = mcmc(x0, n, Lproposal, Lacceptance, myMultimodal )
+MCMCplots(trace4)
+
 ```
+For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the local maxima of the multimodal dsitribution too long and hence does explore the other modes too badly. For higher parameters $\sigma\geq1.0$ the chains reduce their autocorrelation and start to explore all modes. 
+
 
 ### Volcano
 
 Finally, we try the Langevin MH for the volcano shaped density.
 
-```{r Langevin3}
-
+```{r Langevin3, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Multimodal
 
-# Input
-x0 = c(0,0)
-n = 2000
-
 # Tuning parameters
-sigma = 0.1
+sigma = 0.25
 trace1 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
 MCMCplots(trace1)
 
-sigma = 0.25
+sigma = 0.75
 trace2 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
 MCMCplots(trace2)
 
-sigma = 0.5
+sigma = 1.5
 trace3 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
 MCMCplots(trace3)
 
-sigma = 0.75
-trace3 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
-MCMCplots(trace3)
+sigma = 2.5
+trace4 = mcmc(x0, n, Lproposal, Lacceptance, myVolcano )
+MCMCplots(trace4)
 
 ```
+For resonably big choices of $\sigma=1.5$ a chain can be generated which does explore the entire ring with small autocorrelation and an acceptance rate close to the asymptotic optimum. For too small and too big choices the same as for the Random Walk holds: Only a fraction of the ring is explored for too small $\sigma=0.25$, then the chains starts to walk along the circle for $\sigma=0.5$. For too big proposal spread with $\sigma=2.5$ too many large steps will be rejected. 
 
 
 ### Conclusion
 
-Damn it is sensitive to the parameters! :-P
+We saw that the MALA algorithm is very sensitive to small changes in tuning parameter $\sigma$. For too small choices it tends to get stuck in local maxima, what is a known issue and we realized that behaviour here as well. 
+
+For the Gaussian distribution, the Langevin MCMC version works nicely, but the Random Walk does not perform bad here either. In the Multimodal case, the Random walk with suitable proposal spread does not get stuck in a maximum as the Langevin did. The circular density without clear mode is difficult for both MCMC versions, but the Langevin can be parametrised to handle is better. However, in general it depends a lot on the proper tuning for both.
 
 
 
@@ -638,7 +632,11 @@ plot(x[1, ])
 
 
 
+## Conclusion
 
+- Burn-in
+- All require tuning
+- Compare performance
 
 
 
