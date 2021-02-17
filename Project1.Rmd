@@ -7,10 +7,6 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-# Make Rmd stan compatible
-# library(cmdstanr)
-# cmdstanr::register_knitr_engine()
 ```
 
 
@@ -25,7 +21,7 @@ We consider three different bivariate densities.
 
 We start the project with the visulaisation of the respective densities in $[-5,5]\times[-5,5]$. (Whyever R likes to put more white space left and right of the plots, but the middle areas are still representative.)
 
-```{r plotting, fig.height=4, fig.width=12}
+```{r plotting, echo=FALSE, fig.height=4, fig.width=12}
 # Auxilliary variables for visualisation
 x=seq(-5,5,by=0.1)
 y=seq(-5,5,by=0.1)
@@ -128,7 +124,7 @@ image( x=x, y=y, z=z3,
 
 For the subsequent part, where different Metropolis Hastings MCMC algorithms will be implemented, we prepare with the skeleton that was discussed in the exercise class and uploaded. This defines the frame for all MCMC implementations under consideration which differ in the `proposal_func` and `acceptance_func`.  
 
-```{r MCMC}
+```{r MCMC, echo=FALSE}
 # Arguments:
 # x0 = vector of length 2 with initial values for x
 # n = number of MCMC iterations to run
@@ -168,7 +164,7 @@ mcmc <- function(x0, n, proposal_func, acceptance_func, dens) {
 
 These implementation is not tweaked for optimal performance, e.g. log-scale could lead to better scaling or reduction of redundant calculations in the individual MCMC versions could lead to fast execution, but we want to the same skeleton for all algorithms to higlight similarities and differences. For the analysis of the outcomes, we use below's plotting functionality.
 
-```{r MCMCplotting}
+```{r MCMCplotting, echo=FALSE}
 # Arguments:
 # trace = trace of MCMC algo [x_1,x_2]^n
 
@@ -213,18 +209,18 @@ MCMCplots <- function(trace, surface=FALSE){
 
 We will use the same input parameters for all subsequent MCMC calculations, the tuning parameters are of course not influenced.
 
-```{r MCMCinput}
+```{r MCMCinput, echo=FALSE}
 # Input
 x0 = c(0,0)
-n = 20
+n = 2000
 ```
 
 
 ## 1.2 Random walk MH 
 
-The random walk MH uses a symmetric $\mathcal{N}(\texttt{x_old},\sigma^2)$ distribution to generate the new proposal. Moreover, the general MH acceptance probability simplifies.
+The random walk MH uses a symmetric $\mathcal{N}(x_{i-1},\sigma^2)$ distribution to generate the new proposal. Moreover, the general MH acceptance probability simplifies.
 
-```{r RandomWalk}
+```{r RandomWalk, echo=FALSE}
 # Loads
 library(mvtnorm)
 
@@ -261,7 +257,7 @@ RWacceptance <- function(x_prop, x_old, dens){
 
 We first test the Random Walk MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r RandomWalk1, fig.height=4, fig.width=12}
+```{r RandomWalk1, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Gaussian
 
@@ -291,7 +287,7 @@ Depending on the choice of the tuning parameter the MCMC algorithms show differe
 
 We continue with application of the Random Walk MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r RandomWalk2, fig.height=4, fig.width=12}
+```{r RandomWalk2, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Multimodal
 
@@ -321,7 +317,7 @@ For the smallest choice of $\sigma=0.1$ the chain does not really explore all mo
 
 Finally, we try the random walk MH for the volcano shaped density.
 
-```{r RandomWalk3, fig.height=4, fig.width=12}
+```{r RandomWalk3, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Random Walk for Volcano
 
@@ -357,7 +353,7 @@ For all examples, there is a range of runing parameters which explore the state-
 
 Based on the Langevin dynamics and its Euler-Maruyama discretisation, the MALA algorithm uses gradient information to define the proposal density. 
 
-```{r Langevin}
+```{r Langevin, echo=FALSE}
 # Loads
 library(mvtnorm)
 
@@ -429,7 +425,7 @@ Lacceptance <- function(x_prop, x_old, dens){
 
 We first test the Langevin MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin1, fig.height=4, fig.width=12}
+```{r Langevin1, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Gaussian
 
@@ -458,7 +454,7 @@ Even if the mean acceptance rate for small parameters $\sigma\leq 0.5$ is in the
 
 We continue with application of the Langevin MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r Langevin2, fig.height=4, fig.width=12}
+```{r Langevin2, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Multimodal
 
@@ -487,7 +483,7 @@ For small tuning parameter $\sigma\leq 0.75$ the Langevin chain get stuck in the
 
 Finally, we try the Langevin MH for the volcano shaped density.
 
-```{r Langevin3, fig.height=4, fig.width=12}
+```{r Langevin3, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing Langevin for Volcano
 
@@ -522,7 +518,8 @@ For the Gaussian distribution, the Langevin MCMC version works nicely, but the R
 
 ## 1.4 Hamiltonian MH
 
-```{r Hamiltonian}
+```{r Hamiltonian, echo=FALSE}
+# loads 
 library(numDeriv)
 
 K <- function(p){ # kinetic energy is assmued to be sum(p^2/2)
@@ -577,10 +574,12 @@ dU <- function(x_old){
 
 We first test the Hamiltonaian MH for the Gaussian with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r hmc1, fig.height=4, fig.width=12}
+```{r hmc1, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for Gaussian
+
 dens = myGaussian
+
 # Tuning parameters
 L = 10
 delta = 0.1
@@ -592,14 +591,15 @@ MCMCplots(trace1)
 delta = 0.3
 K_old = 0 
 K_prop = 0
-trace2 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+trace2 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
 MCMCplots(trace2)
 
 delta = 0.5
 K_old = 0 
 K_prop = 0
-trace3 = mcmc(x0, n, Lproposal, Lacceptance, myGaussian)
+trace3 = mcmc(x0, n, HMC_proposal, HMC_acceptance, myGaussian)
 MCMCplots(trace3)
+
 ```
 
 
@@ -608,10 +608,12 @@ MCMCplots(trace3)
 
 We continue with application of the Hamiltonian MH to the Multimodal with different tuning parameters $\sigma$ in the proposal distribution. 
 
-```{r hmc2, fig.height=4, fig.width=12}
+```{r hmc2, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for Multimodal
+
 dens = myMultimodal
+
 # Tuning parameters
 
 L = 10
@@ -640,10 +642,12 @@ MCMCplots(trace3)
 
 Finally, we try the Hamiltonian MH for the volcano shaped density.
 
-```{r hmc3, fig.height=4, fig.width=12}
+```{r hmc3, echo=FALSE, fig.height=4, fig.width=12}
 ##############################
 # Testing HMC for volcano
+
 dens = myVolcano
+
 # Tuning parameters
 L = 10
 delta = 0.1
@@ -684,7 +688,7 @@ We consider the example of George et al. For a set of $N=10$ pumps we observe th
 - $t_i$: operation time of pump $i$
 whose data is used as input in the next chunk.
 
-```{r data}
+```{r data, echo=FALSE}
 # Define list with data input
 data = list(
     N=10, 
@@ -731,7 +735,7 @@ We sample from the posterior distribution using `stan`.
 
 NB! The function call is different since we have already a stan model called "pump" in the cache and can sample from that directly.
 
-```{r fitting}
+```{r fitting, echo=FALSE}
 # Load the RStan package
 library(rstan)
 
@@ -749,7 +753,7 @@ fit <- sampling(
 
 Finally, we investigate the results of the stan fit. 
 
-```{r checking}
+```{r checking, echo=FALSE}
 # Printing results of fit
 print(fit)
 
@@ -770,5 +774,4 @@ From the print output of the fitted model, we analyse the effective sample size 
 
 In the trace plots for $\lambda$ (and $eta$) we see that the state space is explored very effectively throughout the entire chains. Maybe for $i\in\{5,7,9\}$ the range of lower probability is not perfectly covered, but that is hard/impossible to say without further histograms. In general, we can assume that the chains reached a behaviour of the limit distribution already after a few dozen steps.
 For $\alpha$ and $\beta$ we observe some higher autocorrelation and a less effective exploration of the target space. For a few dozen steps the sampels appear to remain close before the next jump comes, what is an undesired behavior.
-
 
