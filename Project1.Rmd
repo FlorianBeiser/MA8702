@@ -25,7 +25,7 @@ We consider three different bivariate densities.
 
 We start the project with the visulaisation of the respective densities in $[-5,5]\times[-5,5]$. (Whyever R likes to put more white space left and right of the plots, but the middle areas are still representative.)
 
-```{r plotting}
+```{r plotting, fig.height=4, fig.width=12}
 # Auxilliary variables for visualisation
 x=seq(-5,5,by=0.1)
 y=seq(-5,5,by=0.1)
@@ -34,6 +34,7 @@ z1 = matrix(0, ncol=101, nrow=101)
 z2 = matrix(0, ncol=101, nrow=101)
 z3 = matrix(0, ncol=101, nrow=101)
 
+par(mfrow=c(1,3))
 
 ##############################################
 # 1. Standard Gaussian with Correlation
@@ -57,12 +58,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z1,
-       asp=1,
-       main="Density of Standard Gaussian with Correlation",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z1,
+       asp=1, xlab="x", ylab="y",
+       main="Analytical Density of Standard Gaussian with Correlation")
 
 
 ##############################################
@@ -100,12 +98,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z2,
-       asp=1,
-       main="Density of Multimodal",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z2,
+       asp=1, xlab="x", ylab="y",
+       main="Analytical Density of Multimodal")
 
 
 ##############################################
@@ -125,12 +120,9 @@ for (i in 1:101){
 }
 
 # Visualise
-image( x=x,
-       y=y,
-       z=z3,
-       asp=1,
-       main="Density of Volcano",
-       xlab="x", ylab="y")
+image( x=x, y=y, z=z3,
+       asp=1, xlab="x", ylab="y",
+       main="Analystical Density of Volcano")
 
 ```
 
