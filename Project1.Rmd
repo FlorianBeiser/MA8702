@@ -677,9 +677,9 @@ In this case, it truly tells where Hamiltonian idea was from, the volcano densit
 
 ## Conclusion
 
-- Burn-in
-- All require tuning
-- Compare performance
+We have considered 3 different MCMC versions and tested them for 3 examples with different features. The standard Gaussian distribution is the easist case, the multimodal challanges the chain to explore all modes and the volcano serves as bench mark whether the chain is flexible to discover the fire ring efficiently. All versions have in common that they require tuning parameters, that have to be chosen by the user to make the outcoming chain usable for sampling from the target distribution. Here, we kept some parameters (like the inital state or if applicable initial kinetic energy) fixed, trained the algorithm-specfic parameters by trial-and-error and present result for a collection of those parameter choices. Moreover, common for MCMC algorithms is to discard the samples in the so-called "burn-in" phase. However, in our trace plots we do not exclude those samples from the chain, since it anyways did not seem to be an major issue in our experiments.
+
+While we have compared the results of the 3 MCMC version, we saw that all methods can handle the Gaussian case (assuming we use proper tuning parameters), whereas Random Walk and Langevin can get troubles with Multimodal and Volcano. It stands out that the Hamiltonian works very well for all cases and has by far the smallest autocorrelation. Moreover, the HMC seems less sensitive to the parameter choices, which makes it the most attractive MCMC version from the quality perspective. The only disadvantage, is the perceptible longer calculation time. 
 
 
 
@@ -766,7 +766,6 @@ plot(fit, pars="lambda")
 plot(fit, pars=c("alpha", "beta"))
 plot(fit, pars="eta")
 
-par(mfrow=c(1,3))
 traceplot(fit, pars="lambda", inc_warmup=TRUE, nrow=2)
 traceplot(fit, pars=c("alpha","beta"), inc_warmup=TRUE, nrow=2)
 traceplot(fit, pars="eta", inc_warmup=TRUE, nrow=2)
