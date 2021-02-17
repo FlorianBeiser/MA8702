@@ -25,7 +25,7 @@ We consider three different bivariate densities.
 
 We start the project with the visulaisation of the respective densities in $[-5,5]\times[-5,5]$. (Whyever R likes to put more white space left and right of the plots, but the middle areas are still representative.)
 
-```{r plotting, eval = F, fig.height=4, fig.width=12}
+```{r plotting, fig.height=4, fig.width=12}
 # Auxilliary variables for visualisation
 x=seq(-5,5,by=0.1)
 y=seq(-5,5,by=0.1)
