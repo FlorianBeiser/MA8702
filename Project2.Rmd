@@ -1,0 +1,790 @@
+---
+title: "Project2"
+subtitle: "Gaussian random field with application of INLA"
+author: "Yaolin Ge, Florian Beiser"
+header-includes:
+  - \usepackage[]{algorithm2e}
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+  html_document:
+    toc: yes
+    toc_float: yes
+    code_download: yes
+    toc_depth: 3
+  ioslides_presentation: default
+  beamer_presentation:
+    slide_level: 1
+    keep_tex: yes
+---
+
+```{r setup, include=TRUE,echo=FALSE}
+suppressPackageStartupMessages(library(knitr))
+knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning = FALSE, error = FALSE)
+```
+
+```{r load libraries, echo = F}
+library(lattice)
+library(viridisLite)
+library(fields)
+coul <- viridis(100)
+```
+
+# Part I Multivariate normal distribution
+Let $\boldsymbol{x} = (x_1, \dots, x_n), n = 100$ be multivariate normal distributed with $E(x_i) = 0, Var(x_i) = 1$, and $Corr(x_i, x_j) = e^{-0.1|i - j|}$
+
+a) Compute and image the covariance matrix $\boldsymbol{\Sigma}$ of $\boldsymbol{x}$
+
+b) Find the lower Cholesky factor $\boldsymbol{L}$, such that $\boldsymbol{L}\boldsymbol{L}^T = \boldsymbol{\Sigma}$, of this covariance matrix, and image.
+
+c) Sample $\boldsymbol{x} = \boldsymbol{Lz}$, where $\boldsymbol{z}$ is a length n random vector of independent standard normal variables. Plot the sample.
+
+d) Find the precision matrix $\boldsymbol{Q}$ of the covariance matrix, and compute the lower Cholesky factor $\boldsymbol{L}_Q$, such that $\boldsymbol{L}_Q\boldsymbol{L}_Q^T = \boldsymbol{Q}$, of this matrix. Image these matrices and compare them to the images obtained in a) and b)
+
+e) Sample $\boldsymbol{x}$ by solving $\boldsymbol{L}_Q^T\boldsymbol{x} = \boldsymbol{z}$, where $\boldsymbol{z}$ is a length n random vector of independen standard normal variables. Plot the sample.
+
+f) Permute the ordering of variables in $\boldsymbol{x}$, and redo the exercises. 
+
+
+***
+
+## Solution to Part I
+
+### a) 
+Given that $\boldsymbol{\Sigma} = e^{-0.1|i - j|}$. The covariance matrix can be expressed as follows:
+\begin{equation*}
+    \Sigma = \begin{pmatrix} 
+    1 &  e^{- 0.1 h_{12}} &\dots & e^{- 0.1 h_{1n}} \\
+    e^{- 0.1 h_{21}} & 1 & \dots & e^{- 0.1 h_{2n}} \\
+    \vdots & \vdots & \ddots & \vdots \\
+    e^{- 0.1 h_{n1}} & e^{- 0.1 h_{n2}} & \dots & 1
+    \end{pmatrix}
+\end{equation*}
+
+```{r covariance matrix, echo = F, fig.align='center'}
+# sizes
+n <- 100
+
+# define regular grid of locations
+sites1v <- array((1:n),c(n,1))
+
+# Prior mean
+m <- 0
+
+# compute East and North distances on grid
+ww <- array(1,c(n,1))
+
+# determine the distance matrix
+H <- abs(sites1v%*%t(ww)-ww %*% t(sites1v))
+
+# Exponential covariance model
+Sigma <- exp(-0.1*H)
+
+# Funtion:
+# illustrating matrices
+
+# Input:
+# val - 100x100 matrix
+# string - main title for the plot
+plotf <- function(val, string){
+  levelplot(t(val), ylim=c(100,1), col.regions = coul, main = string)  
+}
+
+# Plot the covariance matrix
+plotf(Sigma, "Covariance matrix")
+```
+
+The covariance has the biggest entries on and around the main diagonal. However, it is fully dense. 
+
+### b) 
+According to the cholesky decomposition rule, $\boldsymbol{L}$ is the lower triangular matrix for $\boldsymbol{\Sigma}$, it can be easily computed from R using `L = chol(Sigma)`. It is then plotted as below. 
+
+```{r Cholesky, echo = F, fig.align='center'}
+# Using R function to calculate Cholesky decomposition
+L <- t(chol(Sigma))
+
+# Plotting
+plotf(L, "Lower triangular covariance matrix")
+```
+
+The decomposed matrix shows a similar structure as the original covariance matrix, such that the biggest values are on and close to the main diagonal, but naturally the matrix is lower triangular.
+
+### c) 
+Sample using $\boldsymbol{x} = \boldsymbol{L}\boldsymbol{z}$ transforms the zero-mean, standard normal random variales to the random variables with the desired covariance matrix. 
+
+```{r, random samples, fig.align='center'}
+# Sampling x and calculating x
+z = rnorm(100)
+x = L %*% z
+
+# Plotting
+plot(x, main = "Random samples given the covariance", type="l")
+```
+
+For the given covariance matrix, a sample of $x$ obtains values around 0 and has a quite wriggling structure. 
+
+### d) 
+The precision matrix $\boldsymbol{Q}$ is the inverse of the covariance matrix $\boldsymbol{\Sigma}$, it is computed using `Q = solve(Sigma)` in R. The three matrices are thereby depicted as follows. Since the covariance matrix is not singular, given that the it belongs to the Matern family, thus it is analytically guaranteed to have positive definite property. Therefore, both precision matrix and the lower triangular precision matrix exist. 
+
+```{r comp between three matrices, fig.show = "hold", out.width="50%"}
+# Calculation of precision matrix
+Q <- solve(Sigma)
+# Cholesky decomp of precision matrix
+LQ <- t(chol(Q))
+
+# Plotting
+par(mar = c(4,4,.1, .1))
+plotf(Sigma, "Covariance matrix")
+plotf(L, "Lower triangular covariance matrix")
+plotf(Q, "Precision matrix")
+plotf(LQ, "Lower triangular precision matrix")
+```
+
+The precision matrix is even more diagonal dominant as the covariance matrix, i.e. values are further than the first off-diagonal are numerically negligible, which makes the precision matrix much more sparse. The same holds for the Cholesky decomposition of the precision matrix.
+
+### e) 
+Similarly, the expected random samples can be generated using the inversion of the above formula, thus $\boldsymbol{L}_Q^T\boldsymbol{x} = \boldsymbol{z}$
+
+```{r, sample in inversion way, fig.align='center'}
+# Sampling using precision matix
+z = rnorm(100)
+x = solve(LQ, z)
+
+# Plotting
+plot(x, main = "Random samples using inversion rule", type="l")
+```
+
+The sample shows the same characterisitics as samples which are calculated directly. 
+
+### f) 
+Permute $\boldsymbol{x}$ to make randomise the ordering of the grid, the associated covariance matrix can be thereby modified in a sparse way. 
+
+```{r, permutation, fig.align='center'}
+# Input:
+n_per = 3 # number of permutations
+
+# Bookkeeping:
+Sigma_per <- list()
+L_per <- list()
+Q_per <- list()
+LQ_per <- list()
+
+par(mfrow=c(3,2))
+par(mar = c(2,2,3,3))
+# Loop for permuations
+for (i in c(1:n_per)){
+  sites1v_per <- array(sample(sites1v, size = n, replace = FALSE), c(n,1))
+  # determine the distance matrix
+  H_per <- abs(sites1v_per%*%t(ww)-ww %*% t(sites1v_per))
+  # Exponential covariance model
+  Sigma_temp <- exp(-0.1*H_per)
+  Sigma_per[[i]] <- Sigma_temp
+  # L matrix
+  L_temp <- t(chol(Sigma_temp))
+  L_per[[i]] <- L_temp
+  
+  z = rnorm(100)
+  x_per = L_temp %*% z
+  plot(x_per, main = paste(i, ". sampe (cov)"), type="l", ylim=c(-2,2))
+  
+  Q_temp <- solve(Sigma_temp)
+  LQ_temp <- t(chol(Q_temp))
+  Q_per[[i]] <- Q_temp
+  LQ_per[[i]] <- LQ_temp
+  z = rnorm(100)
+  x_per = solve(t(LQ_temp), z)
+  plot(x_per, main = paste(i, ". sample (prec)"), type="l", ylim=c(-2,2))
+}
+
+
+```
+
+All samples show same characterisics (as far as we can tell from a single realisation).
+
+```{r, cont plotting 1, fig.show = "hold", out.width="50%"}
+i = 1
+par(mfrow=c(2,2))
+par(mar = c(4, 4,.1, .1)) 
+plotf(Sigma_per[[i]], "Covariance matrix")
+plotf(L_per[[i]], "Lower triangular covariance matrix")
+plotf(Q_per[[i]], "Precision matrix")
+plotf(LQ_per[[i]], "Lower triangular precision matrix")
+```
+
+```{r, cont plotting 2, fig.show = "hold", out.width="50%"}
+i = 2
+par(mar = c(4, 4,.1, .1))
+plotf(Sigma_per[[i]], "Covariance matrix")
+plotf(L_per[[i]], "Lower triangular covariance matrix")
+plotf(Q_per[[i]], "Precision matrix")
+plotf(LQ_per[[i]], "Lower triangular precision matrix")
+```
+
+```{r, cont plotting 3, fig.show = "hold", out.width="50%"}
+i = 3
+par(mar = c(4, 4,.1, .1))
+plotf(Sigma_per[[i]], "Covariance matrix")
+plotf(L_per[[i]], "Lower triangular covariance matrix")
+plotf(Q_per[[i]], "Precision matrix")
+plotf(LQ_per[[i]], "Lower triangular precision matrix")
+```
+
+In contrast to similar sample results, the permutation have a significant influence on the structure of the matrices. The covarinace matrix looses its clear pattern, which leads to a non-sparse precision matrix!
+
+
+# Part II Gaussian random fields and Kriging
+
+The purpose of this computer exercise is to give an introduction to parameter estimation and kriging for Gaussian random field models for spatial data.
+
+We assume the following observation model on the unit square:
+
+\begin{equation*}
+    y(\boldsymbol{s}_j) = x(\boldsymbol{s}_j) + \epsilon_j, \ \ \  j = 1, \dots, N,
+\end{equation*}
+
+where $\epsilon_j ~ \mathop{N}(0, \tau^2)$ are independent measurement noise terms. Further, consider a Matérn covariance function for the Gaussian random field $\boldsymbol{x(s)}$:
+
+\begin{equation*}
+    Cov(x(\boldsymbol{s}_i), x(\boldsymbol{s}_j)) = \Sigma_{i, j} = \sigma^2(1 + \phi h)\exp(-\phi h),
+\end{equation*}
+
+where $h$ denotes the Euclidean distance between the two sites $\boldsymbol{s}_i$ and $\boldsymbol{s}_j$.
+
+We assume the mean increases with east and north coordinates as follows: $\mu_j = \alpha((s_{j1} - 0.5) + (s_{j2} - 0.5))$, for site $\boldsymbol{s}_j = (s_{j1}, s_{j2})$ on the unit square. 
+
+*** 
+
+## 2.1 Simulation
+
+Simulate $N = 200$ random sites in the unit square and plot them. Form the covariance matrix using $\sigma = 1, \phi = 10, \tau = 0.05$. Take its Cholesky decomposition and simulate dependent zero-mean Gaussian data variables, then add the mean using $\alpha = 1$. Plot your observations.
+
+
+The true mean of the field is expressed as 
+\begin{equation*}
+    \mu_i = \alpha((s_{i1} - 0.5) + (s_{i2} - 0.5)) 
+\end{equation*}
+where $s_{i1}, s_{i2}$ are the location from east and north direction in the grid. 
+    
+
+```{r GP1, fig.width = 3.5, fig.height = 4, fig.align="center"}
+set.seed(0421)
+# sample locations
+N = 200
+s = matrix(runif(2*N), ncol=2)
+plot(s[,1], s[,2], pch=4,
+     main="Observation sites", xlab="", ylab="")
+
+# Distance matrix
+# (without packages, since only one-time cost)
+H = matrix(0, ncol=N, nrow=N)
+for (i in 1:N){
+  for (j in 1:N){
+    H[i,j] = sqrt((s[i,1]-s[j,1])**2+(s[i,2]-s[j,2])**2)
+  }
+}
+
+# parameters
+sigma = 1.0
+phi = 10.0
+tau = 0.05
+theta = c(sigma, phi, tau)
+
+alpha = 1.0
+
+
+# Function:
+# assembling of covariance matrix
+# with Matern-like ansatz
+
+# Input:
+# theta=(sigma, phi, tau) with parameters
+
+# Output:
+# cov matrix in size of distance matrix H
+MaternCov <- function(theta, H){
+  sigma=theta[1]
+  phi=theta[2]
+  tau=theta[3]
+  Cov = sigma**2*(1+phi*H)*exp(-phi*H)
+  return(Cov)
+}
+
+# Covariance matrix
+Cov = MaternCov(theta, H)
+
+# simulation
+LCov = t (chol(Cov))
+y0 = LCov %*% rnorm(N)
+
+mu = ((s[,1]-0.5)+(s[,2]-0.5))
+y = y0 + alpha*mu + rnorm(N, mean=0, sd=tau)
+
+# generating colormap
+rbPal <- colorRampPalette(c('blue', 'green','yellow'))
+cols <- rbPal(N)[as.numeric(cut(y,breaks = N))]
+
+cexs_scale = 0.4
+cexs_shift = 3.0
+cexs = pmax(0, cexs_scale*(y+cexs_shift))
+```
+
+```{r plot2, fig.height = 4, fig.width = 3.5, fig.align="center"}
+# plotting
+plot(s[,1],s[,2], col = cols, cex=cexs, pch=4,
+     main="Observations", xlab="", ylab="")
+```
+
+
+In the observation plot, bigger crosses and brighter colors indicate higher observed values. Then we can see tendency towards greater values towards the upper right corner (as we would expect from the bias).
+
+
+***
+
+## 2.2 Paramter estimation
+
+We will now use the simulated data to estimate the model parameters $\alpha, \sigma^2, \tau^2, \phi$ using maximum likelihood estimation. Iterate between the update for the mean parameter, and updating the covariance parameters. Monitor the likelihood function at each step of the algorithm to check convergence. 
+
+The mean of the field is modelled by $p(\boldsymbol{x})$ and the imperfect information $\boldsymbol{y} = (y_1, \dots, y_m)$ conditional on $\boldsymbol{x}$ can be modelled by $p(\boldsymbol{y}|\boldsymbol{x})$, which can be expressed as follows:
+\begin{equation*}
+        p(\boldsymbol{x}) = \mathop{N}(\mu, \boldsymbol{\Sigma}), \quad p(\boldsymbol{y}|\boldsymbol{x}) = \mathop{N}(\boldsymbol{x}, \boldsymbol{\Sigma}+\boldsymbol{T})
+\end{equation*}
+Therefore, the marginal likelihood of the data is 
+\begin{equation*}
+        p(\boldsymbol{y}) = \mathop{N}(\boldsymbol{\mu}, \boldsymbol{C}), \quad \boldsymbol{C} = \boldsymbol{\Sigma} + \boldsymbol{T}, \quad \boldsymbol{T} = \tau^2 \boldsymbol{I}
+\end{equation*}
+
+The log-likelihood as a function of $\alpha$ and unknown fixed nuisance parameters $\boldsymbol{\theta}=(\sigma,\phi,\tau)$ in the prior covariance matrix $\boldsymbol{\Sigma} = \boldsymbol{\Sigma(\boldsymbol{\theta})}$, and/or the likelihood noise matrix $\boldsymbol{T} = \boldsymbol{T}(\boldsymbol{\theta})$ becomes
+\begin{equation*}
+      l(\boldsymbol{\theta}, \boldsymbol{\alpha}) = -\frac{N}{2} \log(2\pi) - \frac{1}{2}\log|\boldsymbol{C}| - \frac{1}{2}(\boldsymbol{y} - \boldsymbol{mu(\alpha)})^T\boldsymbol{C}^{-1}(\boldsymbol{y} - \boldsymbol{mu(\alpha)})
+\end{equation*}
+
+ The MLEs of $\boldsymbol{\alpha}$ and $\boldsymbol{\theta}$ are obtained by
+\begin{equation*}
+        (\hat{\boldsymbol{\alpha}}, \hat{\boldsymbol{\theta}}) = \underset{\boldsymbol{\alpha}, \boldsymbol{\theta}}{\arg\max}\{l(\boldsymbol{\alpha, \theta})\}
+\end{equation*}
+
+For fixed $\boldsymbol{\theta}$, the MLEs of $\boldsymbol{\beta}$ can be determined analytically.
+\begin{equation*}
+    \hat{\boldsymbol{\alpha}} = (\boldsymbol{\mu}^T\boldsymbol{C}^{-1}\boldsymbol{\mu})^{-1}\boldsymbol{\mu}^T\boldsymbol{C}^{-1}\boldsymbol{y}
+\end{equation*}
+Whereas for fixed $\boldsymbol{\alpha}$, the MLE of nuisance parameters $\boldsymbol{\theta}$ can be obtained by numerical maximization. Let $\boldsymbol{Z} = \boldsymbol{y} - \boldsymbol{\mu(\alpha)}$, and $\boldsymbol{Q} = \boldsymbol{C}^{-1}$. For each component of $\boldsymbol{\theta}_r$, $r = 1, \dots, d$, in this case, $\theta$ has 3 components ($\sigma, \eta, \tau$). The score of the log-likelihood becomes
+\begin{equation*}
+      \frac{dl}{d\theta_r} = -\frac{1}{2}\text{trace}(\boldsymbol{Q}\frac{d\boldsymbol{C}}{d\theta_r}) + \frac{1}{2}\boldsymbol{z}^T\boldsymbol{Q}\frac{d\boldsymbol{C}}{d\theta_r}\boldsymbol{QZ}
+\end{equation*}
+
+
+The above mentioned score can be solved iteratively using Fisher scoring algorithm. To achieve the numerical stability of the algorithm, the expected Hessian is applied, which is 
+\begin{equation*}
+      \mathop{E}(\frac{d^2l}{d\theta_rd\theta_{\bar{r}}}) = -\frac{1}{2}\text{trace}(\boldsymbol{Q}\frac{d\boldsymbol{C}}{d\theta_{\bar{r}}}\boldsymbol{Q}\frac{d\boldsymbol{C}}{d\theta_r})
+\end{equation*}
+
+The pseudo code for the Fisher scoring algorithm can then be  expressed as follows:
+\begin{algorithm}[H]
+     \KwData{initial $\alpha_0$, $\theta_0$}
+     \KwResult{Converged $\hat{\alpha}$, $\hat{\theta}$}
+     \While{not converged}{
+      $\boldsymbol{C} = \boldsymbol{C}(\boldsymbol{\theta}^b)$\;
+      $\boldsymbol{\alpha}^{b+1} = [\boldsymbol{\mu}^T\boldsymbol{C}^{-1}\boldsymbol{\mu}]^{-1}\boldsymbol{\mu}^T\boldsymbol{C}^{-1}\boldsymbol{y}$\;
+      $\boldsymbol{Z} = \boldsymbol{y} - \boldsymbol{mu(\alpha^{b+1})}$\;
+      $\boldsymbol{Q} = \boldsymbol{C}^{-1}$ \;
+      $\boldsymbol{dC}_r = \frac{d\boldsymbol{C}(\boldsymbol{\theta}^b)}{d\theta_r}, \quad r = 1, \dots, 3$ \;
+      $\boldsymbol{dl}_r = \frac{dl}{d\theta_r} = -\frac{1}{2}\text{trace}(\boldsymbol{Q}\boldsymbol{dC}_r) + \frac{1}{2}\boldsymbol{z}^T\boldsymbol{Q}\boldsymbol{dC}_r\boldsymbol{Qz}, \quad r = 1, \dots, 3$\;
+      $\boldsymbol{Hess}_{r,s}=\mathop{E}(\frac{d^2l}{d\theta_rd\theta_{\bar{r}}}) = -\frac{1}{2}\text{trace}(\boldsymbol{Q}\boldsymbol{dC}_r\boldsymbol{Q}\boldsymbol{dC}_{s}), \quad r,s = 1, \dots, 3$\;
+      $\boldsymbol{\theta}^{b + 1} = \boldsymbol{\theta}^b - \boldsymbol{Hess}^{-1}\boldsymbol{dl}$\;
+      $b = b + 1$
+      }
+\end{algorithm}
+
+
+```{r GP2}
+# loads
+library(psych)
+# initial guesses
+sigma = 1.5
+phi = 7.5
+tau = 0.1
+theta = c(sigma, phi, tau)
+alpha = 0.5
+
+# optimization parameters
+tol = 1e-12          # value for absolute termination criterion
+l = Inf             # likelihood value
+l_old = 0           # likelihood value of previous iteration
+
+
+# Function: 
+# Calculation of derivatives of the C-matrix wrt parameters
+
+# Input: 
+# theta - current parameters
+
+# Output:
+# dC_dtheta = list(dC_dsigma, dC_dphi, dC_dtau)
+dCdtheta <- function(theta){
+  sigma = theta[1]
+  phi = theta[2]
+  tau = theta[3]
+  
+  dC_dsigma = 2*sigma*(1+phi*H)*exp(-phi*H)
+  dC_dphi = -sigma**2 * phi * H^2 * exp(-phi*H)
+  dC_dtau = 2*tau*diag(N)
+  
+  dC_dtheta = list(dC_dsigma=dC_dsigma, dC_dphi=dC_dphi, dC_dtau=dC_dtau)
+  return(dC_dtheta)
+}
+
+
+# Function:
+# Calculation gradient of likelihood wrt the covariance params
+
+# Input: 
+# theta - current parameters
+# C (matrix NxN) = Cov + tau2 Id, where Cov depends on theta
+# Z (matrix NxN) = Y - (X+mu), where mu depends on alpha but alpha fixed
+
+# Output:
+# dl/dtheta gradient (vector 1xlength(theta))
+dldtheta <- function(theta, C, Q, Z){
+  # Often used variables
+  dl_dtheta = rep(0,length(theta))
+  sigma = theta[1]
+  phi = theta[2]
+  tau = theta[3]
+  
+  dC_dtheta = dCdtheta(theta)
+  dC_dsigma = dC_dtheta$dC_dsigma
+  dC_dphi   = dC_dtheta$dC_dphi
+  dC_dtau   = dC_dtheta$dC_dtau
+  
+  # first component wrt sigma=theta[1]
+  dl_dtheta[1] = -1/2*tr(Q%*%dC_dsigma) + 1/2*t(Z)%*%Q%*%dC_dsigma%*%Q%*%Z
+  
+  # second component wrt phi
+  dl_dtheta[2] = -1/2*tr(Q%*%dC_dphi) + 1/2*t(Z)%*%Q%*%dC_dphi%*%Q%*%Z
+  
+  # third component wrt tau
+  dl_dtheta[3] = -1/2*tr(Q%*%dC_dtau) + 1/2*t(Z)%*%Q%*%dC_dtau%*%Q%*%Z
+  
+  return(dl_dtheta)
+}
+
+# Function:
+# Calculation of Hessian
+
+# Input:
+# theta - current parameters
+# C (matrix NxN) = Cov + tau2 Id, where Cov depends on theta
+
+# Output:
+# Hessian (matrix: length(theta) x length(theta))
+ddldthetadtheta <- function(theta, C, Q){
+  # basic derivatives
+  dC_dtheta = dCdtheta(theta)
+
+  # constructing Hessian
+  ddl_dthetadtheta = matrix(0, ncol=length(theta), nrow=length(theta))
+  for (i in 1:length(theta)){
+    for (j in 1:length(theta)){
+      ddl_dthetadtheta[i,j] = -0.5*tr(Q%*%dC_dtheta[[i]]%*%Q%*%dC_dtheta[[j]])
+    }
+  }
+  return(ddl_dthetadtheta)
+}
+
+
+# parameter estimation loop
+# (nomenclature as in lecture)
+iter = 1
+stats = list(c(iter, theta, alpha, l))
+while(abs(l-l_old)>tol){
+  # current residual
+  Z = y - alpha*mu
+  # current covariance for the model
+  C = MaternCov(theta, H) + theta[3]**2*diag(N)
+  # current precision for the model
+  Q = solve(C)
+  # current gradient
+  dl_dtheta = dldtheta(theta, C, Q, Z)
+  # current Hessian
+  ddl_dthetadtheta = ddldthetadtheta(theta, C, Q)
+  # update theta
+  theta = theta - solve(ddl_dthetadtheta)%*%dl_dtheta
+  # update alpha
+  alpha = solve(t(mu)%*%Q%*%mu)%*%t(mu)%*%Q%*%y
+  # objective value (log-likelihood)
+  l_old = l
+  l = -0.5*log(det(C)) - 0.5*t(Z)%*%solve(C)%*%Z
+
+  # statistics
+  iter = iter + 1
+  stats[[iter]] = c(iter, theta, alpha, l)
+  
+}
+
+print(paste("The parameter estimation coverges after ", iter, "iterations"))
+print(paste("The estimate for sigma (true value  1.0) is ", round(stats[[iter]][2], digits=4)))
+print(paste("The estimate for phi   (true value 10.0) is ", round(stats[[iter]][3], digits=4)))
+print(paste("The estimate for tau   (true value 0.01) is ", round(stats[[iter]][4], digits=4)))
+print(paste("The estimate for alpha (true value  1.0) is ", round(stats[[iter]][5], digits=4)))
+
+likelihoods = rep(0,iter)
+for (i in 1:iter){
+  likelihoods[i] = stats[[i]][6]
+}
+plot(likelihoods, type="l", main = "log likelihood convergence", xlab = "iteration", ylab = "log likelihood")
+```
+
+We see that the parameter estimation comes closer to the true values as the initial guess, but does not fully hit them - however, in a probabilistic framework we cannot expect more. Whereas the likelihood converges very quickly.
+
+*** 
+
+## 2.3 Kriging
+
+We will now use the estimated model parameters to perform kriging prediction. Predict variables $x(s)$, where predictions sites lie on a regular grid of size 25x25 for the unit square. Visualize the Kriging surface and the prediction standard error. Compare with the true field. The expression for the kriging can be shown as below:
+\begin{equation*}
+  \hat{Y}_0 = \mathop{E}(Y_0|\boldsymbol{Y}) = \boldsymbol{X}_0\hat{\beta} +\boldsymbol{C}_{0,.}\boldsymbol{C}^{-1}(\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\hat{\beta}})\\
+\end{equation*}
+
+\begin{equation*}
+Var(Y_0|\boldsymbol{Y}) = \boldsymbol{C}_0 - \boldsymbol{C}_{0,.}\boldsymbol{C}^{-1}\boldsymbol{C}^{'}_{0,.}\\
+\end{equation*}
+
+By depicting the posterior mean and covariance, one can find that Gaussian process model is suitable for predicting the field surface with relatively low mean squared error. To make the predicted surface of the field, the grid needs to be represented
+
+```{r, kriging, fig.align="center", fig.width=3.5, fig.height=3.5}
+# library(pracma)
+plotf2d <- function(v, string, vmin, vmax){
+  vv <- v
+  dim(vv) <- c(n1, n2)
+  levelplot(vv, col.regions = coul, main = string, at=seq(vmin, vmax, length.out=100), xlab = "s1", ylab = "s2")
+}
+
+# # Setup the grid
+n1 = 25 # number of grid points along east direction
+n2 = 25 # number of grid points along north direction
+n = n1 * n2 # total number of grid points
+
+dn1 = 1/n1
+dn2 = 1/n2
+sites1 = array(seq(0, 1, dn1), c(n1, 1))
+sites2 = array(seq(0, 1, dn2), c(n2, 1))
+
+dn1 = 1 / n1
+dn2 = 1 / n2
+sites1 = array(seq(0, 1, dn1), c(n1, 1))
+sites2 = array(seq(0, 1, dn2), c(n2, 1))
+
+ww1 = rep(1, n1)
+ww2 = rep(1, n2)
+sites1m = sites1 %*% t(ww1) # sites1m is the matrix version of sites1
+sites2m = ww2 %*% t(sites2)
+
+sites1v= matrix(sites1m, ncol = 1)
+sites2v = matrix(sites2m, ncol = 1)
+grid = cbind(sites1v, sites2v)
+
+sigmah = stats[[iter]][2]
+phih = stats[[iter]][3]
+tauh = stats[[iter]][4]
+thetah = c(sigmah, phih, tauh)
+alphah = stats[[iter]][5]
+mu_prior = (grid[, 1] - .5 + grid[, 2] - .5) * alphah
+
+
+# distance matrix for the grid locs
+HGrid = rdist(grid, grid)
+C0 = MaternCov(thetah, HGrid)
+# distance matrix for observation locs
+HObs = rdist(s, s)
+C = MaternCov(thetah, HObs) + tau ** 2 * matrix(rep(1, N * N), c(N, N))
+# distance matrix for observation locs and variable locs
+HGridObs = rdist(grid, s)
+C0_ = MaternCov(thetah, HGridObs)
+
+mu_posterior = mu_prior + C0_ %*% solve(C) %*% (y - mu * alphah)
+Sigma_posterior = C0 - C0_ %*% solve(C) %*% t(C0_)
+
+L = t(chol(C0))
+mu_real = L %*% rnorm(n) +  (grid[, 1] - .5 + grid[, 2] - .5) * 1
+
+plotf2d(mu_posterior, "Kriging surface", -4, 4)
+estd = sqrt(diag(Sigma_posterior))
+```
+
+```{r plot 3, fig.width = 3.5, fig.height = 3.5, fig.align="center"}
+plotf2d(estd, "Predication standard error", 0, 1)
+
+```
+
+```{r plot4, fig.width = 3.5, fig.height = 3.5, fig.align="center"}
+plotf2d(mu_real, "True field", -4, 4)
+```
+
+From the prediction error plot, one can tell that once it is observed, the corresponding prediction error shrinks to small values. So one can tell by observing the field using Guassian process, it provides a suitable way to predict the desired field.
+
+***
+
+# Part III Integrated nested Laplace Approximations (INLA)
+
+In the last part of this exercise, we explore the `R-INLA` package along two examples.
+
+## 3.1 Simple Linear Regression
+
+First, we analyse the ski jumping data set using a linear regression model, which can be phrased as Latent Gaussian model suitable for INLA. Therefore, we start with loading the INLA package and exploring the dataset. 
+
+```{r INLA1, echo=FALSE}
+# 1 Load R-INLA package
+library(INLA)
+
+# 2 Load and save SkiPump-dataset
+skiData = read.table("SkiJump.txt", header=TRUE)
+```
+
+The ski jumping data set contains 26 observations of measured lengths in ski jumping competitions (in meters) between the years 1961 and 2011. 
+
+```{r INLA2, echo=FALSE, fig.cap="\\label{fig:skiData}Visualisation of the ski jumping data set"}
+# 3 Visualisation
+plot(skiData$Year, skiData$Length,
+     xlab="year", ylab="length",
+     main="Ski jumping data")
+```
+
+In Figure \ref{fig:skiData} we depict the 26 observations given their year. We observe a clear (almost linear) trend in the measured jumping lengths to increase with the years.
+
+Suitable for this model assumption on the data, we use linear regression approach for the statistical modelling of this data, where the years $x_i$ are the covariates and the lengths $y_i$ are the responses for $i=1,\dots,26$:
+\begin{equation*}
+\mathbb{E}[y_i] = \mu + \beta x_i,\quad \mathbb{Var}[y_i]=\tau^{-1}.
+\end{equation*}
+
+This can be posed as a latent Gaussian model suited for the INLA framework.
+
+1.    The response depends on the linear predictors $\eta$ as $y|x,\theta = \Pi \pi(y_i|\eta_i,\tau)$ with Gaussian likelihood $\pi(y_i|\eta_i,\tau)\sim\mathcal{N}(\eta_i,\tau^{-2})$ 
+2.    The parameters $\mu$ and $\beta$ of the linear predictor $eta_i=\mu+x_i\beta$ are independent Gaussian with a fixed huge variance and mean zero. Note that no additional hyperparameter is introduced here.
+3.    The model's hyperparameter $\tau$ is only one-dimensional and is equipped with a Gaussian prior by default with out specification. 
+
+The distributions which are not specified in detail here use default settings in the `R-INLA` package, which are naturally compatible with the LGM construction.
+
+```{r INLA3, echo=FALSE}
+# 4 Linear regression using R-INLA
+res = inla(Length ~ Year, data=skiData,
+           control.predictor = list(compute=TRUE))
+
+# Post processing
+summary(res)
+```
+The INLA run generates posterior estimates for the fixed effects $\mu$ and $\beta$, which will be investigated blow. In the summary, we read the precision of the distribution for the hyperparameter $\tau$ which is rather small, meaning that the variance will be rather big. However, in a ski jumping competition we can expect a variance of several meters such that this is reasonable.
+
+
+```{r INLA4, echo=FALSE, fig.width=6, fig.height=4, fig.cap="\\label{fig:INLApredictor}Linear regression with INLA"}
+# Plotting fitted values (equal to linear predictor)
+plot(skiData$Year, skiData$Length, col="red",
+     xlab="year", ylab="length",
+     main="Prediction for the data")
+lines(skiData$Year, res$summary.linear.predictor$mean)
+lines(skiData$Year, res$summary.linear.predictor$`0.025quant`, lty=2)
+lines(skiData$Year, res$summary.linear.predictor$`0.975quant`, lty=2)
+```
+
+In Figure \ref{fig:INLApredictor} we see that the linear trend is really well captured by the model (black line), whereas the 95% credibility interval (dashed line) does not cover all data points.
+
+
+```{r INLA5, echo=FALSE, fig.width=12, fig.height=8, fig.cap="\\label{fig:INLAmarginals}Posterior marginals for selected effects"}
+# Plotting marginal distribution
+par(mfrow=c(2,2))
+plot(inla.smarginal(res$marginals.fixed[[1]]),
+     xlab="mu", ylab="density",
+     main="Posterior marginal for mu")
+
+plot(inla.smarginal(res$marginals.fixed[[2]]),
+     xlab="beta", ylab="density",
+     main="Posterior marginal for beta")
+
+plot(inla.smarginal(res$marginals.hyperpar[[1]]),
+     xlab="tau", ylab="density",
+     main="Posterior for the hyperparameter tau")
+
+plot(inla.smarginal(
+        inla.tmarginal(function(x)1/sqrt(x), 
+            res$marginals.hyperpar[[1]])), 
+     xlab="sigma", ylab="density",
+     main="Posterior marginal for transformed hyperparameter sigma")
+
+# Printing estimate
+print("Estimates for sigma:")
+inla.zmarginal(inla.tmarginal(function(x)1/sqrt(x),res$marginals.hyperpar[[1]]))
+```
+
+In Figure \ref{fig:INLAmarginals}, we depict the marginal posterior distributions for all variables of interest. In particular, the transformed marginal analysis confirms our interpretation that the variance in the magnitude of several meters (roughly around 4 meters), but again this is very reasonable for this application. 
+
+
+## 3.2 GLMM with random effects
+
+Last, we use INLA to analyse the "Seeds" data set. This data concerns the portion of seeds that germinated on a sample set of 21 plates. The plates are equipped with one of two types of seeds and one of two types of extracts. The characteristics of plate $i$ are described by the covariates $x_{1,i}$ which is the type of seed and $x_{2,i}$ which is the type of root extract - these covariates are either 0 or 1 for the different possibilies. Then the number of germinated seeds $r_i$ on plate $i$ is counted in contrast to the number of total seeds $n_i$ on that plate. Having $p_i$ as the probability of germination on plate $i$, a binomial model for this example is
+\begin{align*}
+r_i &\sim Binomial(p_i,n_i)\\
+\text{logit}(p_i) &= a_0 + a_1x_{1,i} + a_2x_{2,i}+\varepsilon_i
+\end{align*}
+where $\varepsilon_i$ is some iid noise. As above non-specified prior- and hyperparameter-distributions use the default of `R-INLA`. This model is then again implemented in `R-INLA`.  
+
+```{r GLMM1, echo=FALSE}
+library(INLA)
+# Load dataset
+data(Seeds)
+
+# Prepare INLA call
+data = Seeds
+formula = r ~ x1 + x2 + f(plate, model="iid")
+
+print("The x1 covariate:")
+print(data$x1)
+print("The x2 covariate:")
+print(data$x2)
+
+# Call INLA
+res = inla(formula=formula, data=data,
+           family="binomial", Ntrials=n,
+           control.family = list(link = "logit"), 
+           control.predictor = list(compute=TRUE))
+
+# Post processing
+summary(res)
+```
+
+Remark the structured pattern in the covariates. Furthermore, here the precision is rather higher yielding a small variance in the estimate.
+
+```{r GLMM2, echo=FALSE, fig.width=12, fig.height=4, fig.cap="\\label{fig:GLMMmarginals}Posterior marginals for selected effects"}
+# Plot marginals for fixed effect
+par(mfrow=c(1,3))
+plot(inla.smarginal(res$marginals.fixed[[1]]),
+     xlab="a0", ylab="density",
+     main="Posterior marginal for a0")
+
+plot(inla.smarginal(res$marginals.fixed[[2]]),
+     xlab="a1", ylab="density",
+     main="Posterior marginal for a1")
+
+plot(inla.smarginal(res$marginals.fixed[[3]]),
+     xlab="a2", ylab="density",
+     main="Posterior marginal for a2")
+```
+
+In Figure \ref{fig:GLMMmarginals}, we see rather confident estimates for the fixed effects of the model. In particular, we note that the effect $a_2$ will dominate the model since we only have 0 and 1 values for the covariates. The effect $a_0$ is common for all plates and the absolute value of $a_1$ for the seed type is a way smaller than the one for the root extract.
+
+
+```{r GLMM3, echo=FALSE, fig.width=12, fig.height=4, fig.cap="\\label{fig:GLMMpredict}GLMM with INLA"}
+# Plot linear predictor and fitted values
+par(mfrow=c(1,2))
+plot(res$summary.linear.predictor$mean,
+     xlab="plate", ylab="logit",
+     main="Posterior marginal mean for logits")
+     
+plot(data$plate, data$r/data$n, col="red",
+     xlab="plate", ylab="p", ylim=c(0,1),
+     main="Posterior marginal mean for p")
+lines(res$summary.fitted.values$mean)
+lines(res$summary.fitted.values$`0.025quant`, lty=2)
+lines(res$summary.fitted.values$`0.975quant`, lty=2)
+```
+
+In Figure \ref{fig:GLMMpredict}, we recognize a clear pattern with high values when the root extract with value 1 is chosen. The choice of the seed only has minor influence on the prediction. Moreover, the variance of this model cannot cover all data points, which is a common issue in binomial models with few data though. 
