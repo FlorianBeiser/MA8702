@@ -1,0 +1,73 @@
+---
+title: "Project3"
+subtitle: "Ship tracking from bearings"
+author: "Florian Beiser, Yaolin Ge"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+```
+
+# Introduction
+
+The state of the problem is $x_t = (E_t, N_t, v_t, u_t)$, where $x_1 \sim \mathcal{N}_4(\mu_1,\Sigma_1)$.
+
+The forward model is specified by $x_{t+1} = A x_t + \varepsilon_{t+1}$ for $t=1,\dots,T-1$. 
+
+The observation model is specified by $y_t = H(x_t) + \beta_t$ for $t=1,\dots,T$ with $H(x_t) = (arctan(E_t/N_t),arctan((40-N_t)/(40-E_t)))^\top$
+
+```{r intro}
+set.seed(202104)
+
+# Prior
+mu1 = c(10,30,10,-10)
+Sigma1 = diag(c(10**2,10**2,5**2,5**2))
+
+x = mvrnorm(mu=mu1, Sigma=Sigma1)
+
+
+# Forward model 
+delta = 1/60
+
+A = diag(4)
+A[1,3] = delta 
+A[2,4] = delta 
+
+Eps_model = diag(c(0.1**2,0.1**2,0.5**2,0.5**2))
+
+ModelStep <- function(x){
+  x = A%*%x + mvrnorm(mu=rep(0,4), Sigma=Eps)
+  return(x)
+}
+
+
+# Obsrvation model
+Eps_obs = diag(c(0.1**2,0.1**2))
+
+Observation <- function(x){
+  y = c(atan(x[1]/x[2]), atan((40-x[2])/(40-x[1]))) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+  return(y)
+}
+
+
+# Observations 
+obsA = read.table("sensorA.txt")
+obsB = read.table("sensorB.txt")
+
+obs = cbind(obsA,obsB)
+
+## Visualisation
+par(mfrow=c(1,2))
+plot(obs[,1], main="Observations from sensor A",
+     xlab="time", ylab="angle")
+plot(obs[,2], main="Observations from sensor B",
+     xlab="time", ylab="angle")
+
+```
+
+
+
+# Extended Kalman filter
+
