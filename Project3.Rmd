@@ -12,11 +12,11 @@ library(MASS)
 
 # Introduction
 
-The state of the problem is $x_t = (E_t, N_t, v_t, u_t)$, where $x_1 \sim \mathcal{N}_4(\mu_1,\Sigma_1)$.
+The state of the problem is $\mathrm{x}_t = (E_t, N_t, v_t, u_t)$, where $x_1 \sim \mathcal{N}_4(\mu_1,\Sigma_1)$.
 
-The forward model is specified by $x_{t+1} = A x_t + \varepsilon_{t+1}$ for $t=1,\dots,T-1$. 
+The forward model is specified by $\mathrm{x}_{t+1} = \mathbf{A} \mathrm{x}_t + \varepsilon_{t+1}$ for $t=1,\dots,T-1$. 
 
-The observation model is specified by $y_t = H(x_t) + \beta_t$ for $t=1,\dots,T$ with $H(x_t) = (arctan(E_t/N_t),arctan((40-N_t)/(40-E_t)))^\top$
+The observation model is specified by $\mathrm{y}_t = H(\mathrm{x}_t) + \beta_t$ for $t=1,\dots,T$ with $H(\mathrm{x}_t) = (\arctan(E_t/N_t),\arctan((40-N_t)/(40-E_t)))^\top$
 
 ```{r intro}
 set.seed(202104)
@@ -24,9 +24,6 @@ set.seed(202104)
 # Prior
 mu1 = c(10,30,10,-10)
 Sigma1 = diag(c(10**2,10**2,5**2,5**2))
-
-x = mvrnorm(mu=mu1, Sigma=Sigma1)
-
 
 # Forward model 
 delta = 1/60
@@ -38,16 +35,16 @@ A[2,4] = delta
 Eps_model = diag(c(0.1**2,0.1**2,0.5**2,0.5**2))
 
 ModelStep <- function(x){
-  x = A%*%x + mvrnorm(mu=rep(0,4), Sigma=Eps)
+  x = A%*%x #+ mvrnorm(mu=rep(0,4), Sigma=Eps_model)
   return(x)
 }
 
 
-# Obsrvation model
+# Observation model
 Eps_obs = diag(c(0.1**2,0.1**2))
 
 Observation <- function(x){
-  y = c(atan(x[1]/x[2]), atan((40-x[2])/(40-x[1]))) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+  y = c(atan(x[1]/x[2]), atan((40-x[2])/(40-x[1]))) #+ mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
   return(y)
 }
 
@@ -71,3 +68,132 @@ plot(obs[,2], main="Observations from sensor B",
 
 # Extended Kalman filter
 
+For the extended Kalman filter, we linearize the observation operator $H$ and construct its Jacobian $\mathbf{H}|_x$.
+
+```{r EKF}
+
+linObsOp <- function(x){
+  H = matrix(0, ncol=4, nrow=2)
+  H[1,1] = x[2]/(x[1]**2 + x[2]**2)
+  H[1,2] = -x[1]/(x[2]**2 + x[1]**2)
+  H[2,1] = (40-x[2])/(x[1]**2 - 80*x[1] + x[2]**2 - 80*x[2] + 3200)
+  H[2,2] = (x[2]-40)/(x[1]**2 - 80*x[1] + x[2]**2 - 80*x[2] + 3200)
+  return(H)
+}
+
+# Bookkeeping 
+T = 50
+mus    = array(0, dim=c(4,T))
+Sigmas = array(0, dim=c(4,4,T))
+
+# DATA ASSIMILATION in time loop
+mu = mu1
+Sigma = Sigma1
+for (t in 1:T){
+  ## Forward Step
+  # NOTE: the initial prior is already given for the first observation time
+  if (t != 1){
+    mu = ModelStep(mu)
+  }
+  Sigma = A %*% Sigma %*% t(A) + Eps_model
+  
+  ## Analysis Step
+  H = linObsOp(mu)
+  S = H %*% Sigma %*% t(H) + Eps_obs
+  K = Sigma %*% t(H) %*% solve(S)
+  
+  # Updating
+  y = t(obs[t,]) 
+  mu = mu + K %*% (y - Observation(mu))
+  Sigma = (diag(4) - K %*% H) %*% Sigma 
+  
+  # Storage 
+  mus[,t] = mu
+  Sigmas[,,t] = Sigma
+}
+
+
+plot(mus[1,],mus[2,], main="Filtered position means",
+     xlab="East", ylab="North",
+     xlim=c(0,40), ylim=c(0,40),
+     col="red", type="l")
+
+lines(mus[1,] - 2*sqrt(Sigmas[1,1,]), mus[2,] - 2*sqrt(Sigmas[2,2,]))
+lines(mus[1,] + 2*sqrt(Sigmas[1,1,]), mus[2,] + 2*sqrt(Sigmas[2,2,]))
+
+par(mfrow=c(1,2))
+plot(Sigmas[1,1,], main="Filtered position variances (east)",
+     xlab="time", ylab="variance")
+plot(Sigmas[2,2,], main="Filtered position variances (north)",
+     xlab="time", ylab="variance")
+
+plot(mus[3,], main="Filtered velocity means (east)",
+     xlab="time", ylab="velocity")
+plot(mus[4,], main="Filtered velocity means (east)",
+     xlab="time", ylab="velocity")
+```
+
+
+# Ensemble Kalman Filter
+
+The ensemble version replaces the covariance matrix by an estimate of it.
+
+```{r EnKF}
+
+# Bookkeeping 
+B = 1000
+mus    = array(0, dim=c(4,T))
+Sigmas = array(0, dim=c(4,4,T))
+
+
+# DATA ASSIMILATION in time loop
+mu = mu1
+Sigma = Sigma1
+
+for (t in 1:T){
+  ## Forward Step
+  # NOTE: the initial prior is already given for the first observation time
+  if (t == 1){
+    ensemble = t(mvrnorm(B, mu=mu, Sigma=Sigma))
+  }
+  else{
+    for (e in 1:B){
+      ensemble[,e] = ModelStep(ensemble[,e]) + mvrnorm(mu=rep(0,4), Sigma=Eps_model)
+    }
+  }
+  ensemble_mean = rowMeans(ensemble)
+  Sigma = 1/(B-1)*(ensemble-ensemble_mean)%*%t(ensemble-ensemble_mean)
+  
+  ## Analysis Step
+  for (e in 1:B){
+    # Analysing single ensemble member
+    H = linObsOp(ensemble[,e])
+    S = H %*% Sigma %*% t(H) + Eps_obs
+    K = Sigma %*% t(H) %*% solve(S)
+    
+    # Updating single ensemble member
+    y = t(obs[t,]) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+    d = y - Observation(ensemble[,e])
+    ensemble[,e] = ensemble[,e] + K %*% d
+  }
+  
+  # Storage 
+  mus[,t] = rowMeans(ensemble)
+  Sigmas[,,t] = Sigma
+}
+
+plot(mus[1,],mus[2,], main="Filtered position means",
+     xlab="East", ylab="North",
+     xlim=c(0,40), ylim=c(0,40))
+
+par(mfrow=c(1,2))
+plot(Sigmas[1,1,], main="Filter position variances (east)",
+     xlab="time", ylab="variance")
+plot(Sigmas[2,2,], main="Filter position variances (north)",
+     xlab="time", ylab="variance")
+
+plot(mus[3,], main="Filter velocity means (east)",
+     xlab="time", ylab="velocity")
+plot(mus[4,], main="Filter velocity means (east)",
+     xlab="time", ylab="velocity")
+```
