@@ -142,8 +142,7 @@ The ensemble version replaces the covariance matrix by an estimate of it.
 
 # Bookkeeping 
 B = 1000
-mus    = array(0, dim=c(4,T))
-Sigmas = array(0, dim=c(4,4,T))
+ensembles = array(0, dim=c(4,B,T))
 
 
 # DATA ASSIMILATION in time loop
@@ -157,43 +156,54 @@ for (t in 1:T){
     ensemble = t(mvrnorm(B, mu=mu, Sigma=Sigma))
   }
   else{
+    # Forwarding single particles
     for (e in 1:B){
       ensemble[,e] = ModelStep(ensemble[,e]) + mvrnorm(mu=rep(0,4), Sigma=Eps_model)
     }
   }
   ensemble_mean = rowMeans(ensemble)
-  Sigma = 1/(B-1)*(ensemble-ensemble_mean)%*%t(ensemble-ensemble_mean)
+  
+  # Observing ensemble
+  y = t(obs[t,])
+  y_ensemble = matrix(0, nrow=2, ncol=B)
+  for (e in 1:B){
+    y_ensemble[,e] = Observation(ensemble[,e]) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+  }
+  y_ensemble_mean = rowMeans(y_ensemble)
+  
+  # Estimating
+  Sigma_y = 1/B*(y_ensemble - y_ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
+  Sigma_xy = 1/B*(ensemble - ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
+  
   
   ## Analysis Step
   for (e in 1:B){
-    # Analysing single ensemble member
-    H = linObsOp(ensemble[,e])
-    S = H %*% Sigma %*% t(H) + Eps_obs
-    K = Sigma %*% t(H) %*% solve(S)
-    
-    # Updating single ensemble member
-    y = t(obs[t,]) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
-    d = y - Observation(ensemble[,e])
-    ensemble[,e] = ensemble[,e] + K %*% d
+    ensemble[,e] = ensemble[,e] + Sigma_xy %*% solve(Sigma_y) %*% (y - y_ensemble[,e])
   }
   
-  # Storage 
-  mus[,t] = rowMeans(ensemble)
-  Sigmas[,,t] = Sigma
+  # Storing
+  ensembles[,,t] = ensemble
 }
 
-plot(mus[1,],mus[2,], main="Filtered position means",
+# Plotting
+library(matrixStats)
+
+plot(colMeans(ensembles[1,,]), colMeans(ensembles[2,,]), main="Filtered position means",
      xlab="East", ylab="North",
-     xlim=c(0,40), ylim=c(0,40))
+     xlim=c(0,40), ylim=c(0,40),
+     col="red", type="l")
+
+lines(colQuantiles(ensembles[1,,],probs=0.025),colQuantiles(ensembles[2,,],probs=0.025))
+lines(colQuantiles(ensembles[1,,],probs=0.975),colQuantiles(ensembles[2,,],probs=0.975))
 
 par(mfrow=c(1,2))
-plot(Sigmas[1,1,], main="Filter position variances (east)",
+plot(colVars(ensembles[1,,]), main="Filter position variances (east)",
      xlab="time", ylab="variance")
-plot(Sigmas[2,2,], main="Filter position variances (north)",
+plot(colVars(ensembles[2,,]), main="Filter position variances (north)",
      xlab="time", ylab="variance")
 
-plot(mus[3,], main="Filter velocity means (east)",
+plot(colMeans(ensembles[3,,]), main="Filter velocity means (east)",
      xlab="time", ylab="velocity")
-plot(mus[4,], main="Filter velocity means (east)",
+plot(colMeans(ensembles[4,,]), main="Filter velocity means (east)",
      xlab="time", ylab="velocity")
 ```
