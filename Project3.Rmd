@@ -12,20 +12,39 @@ library(MASS)
 
 # Introduction
 
-The state of the problem is $\mathrm{x}_t = (E_t, N_t, v_t, u_t)$, where $x_1 \sim \mathcal{N}_4(\mu_1,\Sigma_1)$.
+This exercise deals with ship tracking from bearing observations only. The \emph{state} of the problem is $\mathrm{x}_t = (E_t, N_t, v_t, u_t)$, where at time $t=1,\dots,T$ the component $(E_t,N_t)$ is the east and north position in the reference field, while $(v_t,u_t)$ is the velocity vector in that field. The state vector is assigned the prior $x_1 \sim \mathcal{N}_4(\mu_1,\Sigma_1)$ for the starting time.
 
-The forward model is specified by $\mathrm{x}_{t+1} = \mathbf{A} \mathrm{x}_t + \varepsilon_{t+1}$ for $t=1,\dots,T-1$. 
+The \emph{forward model} of the system is specified by 
+$$\mathrm{x}_{t+1} = \mathbf{A} \mathrm{x}_t + \eta_{t+1}, \quad \eta_{t+1}\sim\mathcal{N}(0, \Sigma_{\text{model}})$$
+for $t=1,\dots,T-1$, where 
+\begin{align}
+\mathbf{A} = \begin{pmatrix} 1 & 0 & \delta & 0 \\ 0 & 1 & 0 & \delta \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix}
+\end{align}
+with $\delta=1/60$. 
 
-The observation model is specified by $\mathrm{y}_t = H(\mathrm{x}_t) + \beta_t$ for $t=1,\dots,T$ with $H(\mathrm{x}_t) = (\arctan(E_t/N_t),\arctan((40-N_t)/(40-E_t)))^\top$
+The \emph{observation model} is specified by 
+$$\mathrm{y}_t = H(\mathrm{x}_t) + \varepsilon_t, quad \varepsilon_t\sim\mathcal{N}(0, \Sigma_{\text{obs}})$$ 
+for $t=1,\dots,T$ with 
+\begin{align}
+H(\mathrm{x}_t) = \begin{pmatrix} \arctan(\frac{E_t}{N_t}) \\ \arctan(\frac{40-N_t}{40-E_t}) \end{pmatrix}
+\end{align}
 
-```{r intro}
+Both the model error $\eta_t$ as well as as the observation noise $\varepsilon_t$ are time-independent Gaussian distributed with covariances 
+\begin{align}
+\Sigma_{\text{model}} = \begin{pmatrix} 0.1^2&&& \\ &0.1^2&& \\ &&0.5^2& \\ &&&0.5^2 \end{pmatrix}
+\quad \Sigma_{\text{obs}} = \begin{pmatrix} 0.1^2& \\ &0.1^2 \end{pmatrix}
+\end{align}
+
+For this exercise observations $y$ are given for times $t=1,\dots,T=50$. 
+
+```{r intro, fig.align='center', fig.height=4}
 set.seed(202104)
 
 # Prior
 mu1 = c(10,30,10,-10)
 Sigma1 = diag(c(10**2,10**2,5**2,5**2))
 
-# Forward model 
+## Forward model 
 delta = 1/60
 
 A = diag(4)
@@ -34,22 +53,30 @@ A[2,4] = delta
 
 Eps_model = diag(c(0.1**2,0.1**2,0.5**2,0.5**2))
 
+
+# Function:
+# Taking a state and evolving it deterministically 
+# NB: No model error added
 ModelStep <- function(x){
-  x = A%*%x #+ mvrnorm(mu=rep(0,4), Sigma=Eps_model)
+  x = A%*%x 
   return(x)
 }
 
 
-# Observation model
+## Observation model
 Eps_obs = diag(c(0.1**2,0.1**2))
 
+# Function: 
+# Taking a state and observing it
+# NB: No observation noise added
 Observation <- function(x){
-  y = c(atan(x[1]/x[2]), atan((40-x[2])/(40-x[1]))) #+ mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+  y = c(atan(x[1]/x[2]), atan((40-x[2])/(40-x[1])))
   return(y)
 }
 
 
-# Observations 
+## Observations 
+# Observations are provided in 2 separate files
 obsA = read.table("sensorA.txt")
 obsB = read.table("sensorB.txt")
 
@@ -68,9 +95,28 @@ plot(obs[,2], main="Observations from sensor B",
 
 # Extended Kalman filter
 
-For the extended Kalman filter, we linearize the observation operator $H$ and construct its Jacobian $\mathbf{H}|_x$.
+Since our problem setting has a non-linear observation operator, the classical Kalman filter is not applicable, but the extended version (EKF) can provide deterministic assimilation of mean and covariance of the state distribution after assimilating the observations at each time point. 
 
-```{r EKF}
+For the extended Kalman filter, we have to linearize the observation operator $H$ and construct its Jacobian $\mathbf{H}|_x$, which is 
+\begin{align}
+\mathbf{H}|_{x=(E,N,v,u)} = \begin{pmatrix} \frac{N}{E^2+N^2} & -\frac{E}{E^2+N^2} & 0 & 0 \\ \frac{40-N}{E^2 - 80E + N^2 - 80N + 3200}& \frac{N-40}{E^2 - 80E + N^2 - 80N + 3200} & 0 & 0 \end{pmatrix}.
+\end{align}
+
+Starting from the prior with $\mu_t=\mu_1$ and $\Sigma_t=\Sigma_1$, the EKF loops trough the forward and analysis step. 
+
+The forward step is given by
+\begin{align}
+  \hat{\mu}_{t+1} &= \mathbf{A}\mu_t \\
+  \hat{\Sigma}_{t+1} &= \Sigma_t A \Sigma_t^\top + \Sigma_{\text{model}} 
+\end{align}
+and the analysis step is given by
+\begin{align}
+  \mathbf{K}_{t+1} &= \hat{\Sigma}_{t+1} \mathbf{H}|_{x=\hat{\mu}_{t+1}} (\mathbf{H}|_{x=\hat{\mu}_{t+1}}\hat{\Sigma}_{t+1}\mathbf{H}|_{x=\hat{\mu}_{t+1}}^\top)^{-1}
+  \mu_{t+1} &= \hat{\mu}_{t+1} + \mathbf{K}_{t+1}(y_{t+1} - H(\hat{\mu}_{t+1})) \\
+  \Sigma_{t+1} & = (\mathbf{Id}- \mathbf{K}_{t+1}\mathbf{H}|_{x=\hat{\mu}_{t+1}})\hat{\Sigma}_{t+1}
+\end{align}
+
+```{r EKF, fig.align='center', fig.height=4, fig.width=4}
 
 linObsOp <- function(x){
   H = matrix(0, ncol=4, nrow=2)
@@ -112,7 +158,7 @@ for (t in 1:T){
   Sigmas[,,t] = Sigma
 }
 
-
+# Plotting
 plot(mus[1,],mus[2,], main="Filtered position means",
      xlab="East", ylab="North",
      xlim=c(0,40), ylim=c(0,40),
@@ -120,25 +166,45 @@ plot(mus[1,],mus[2,], main="Filtered position means",
 
 lines(mus[1,] - 2*sqrt(Sigmas[1,1,]), mus[2,] - 2*sqrt(Sigmas[2,2,]))
 lines(mus[1,] + 2*sqrt(Sigmas[1,1,]), mus[2,] + 2*sqrt(Sigmas[2,2,]))
+```
 
+```{r EKFplots, fig.align='center', fig.height=3.5}
+# Variance pltos
 par(mfrow=c(1,2))
 plot(Sigmas[1,1,], main="Filtered position variances (east)",
      xlab="time", ylab="variance")
 plot(Sigmas[2,2,], main="Filtered position variances (north)",
      xlab="time", ylab="variance")
 
+# Velocity pltos
 plot(mus[3,], main="Filtered velocity means (east)",
      xlab="time", ylab="velocity")
-plot(mus[4,], main="Filtered velocity means (east)",
+plot(mus[4,], main="Filtered velocity means (north)",
      xlab="time", ylab="velocity")
 ```
 
 
+The results show the mean surrounded by a uncertainty range which is calculated from as combination of the bounds of the ~95% confidence interval of the individual east and north components in the state distribution. Especially, from the second plot we can take that the assimilation process reduces the variances significantly. However, noisy observations and high eastwards velocities around $t=40$ lead to an intermediate increase of the variance. 
+
+
 # Ensemble Kalman Filter
 
-The ensemble version replaces the covariance matrix by an estimate of it.
+The ensemble version (EnKF) approximates the distribution by a representation of several particles and replaces thereby the covariance matrix by an estimate of it. For an ensemble $(\mathrm{x}_t^b)_{b=1}^{B}$ of size $B=1000$ which is at $t=1$ initialized from $\mathcal{N}(\mu_1,\Sigma_1)$ the EnKF also follow a two-step procedure for the data assimilation. Here, we use the stochastic update step in a formulation that does not rearange the particles around the analysis mean but updates the particles based on its previous individual position. 
 
-```{r EnKF}
+The forward step propagates each ensemble member using the model equations 
+\begin{align}
+  \hat{\mathrm{x}}_{t+1}^b &= \mathbf{A}\mathrm{x}_t + \eta_{t+1}, \quad b = 1,\dots,B
+\end{align}
+and the analysis step uses the estimated Kalman gain to shift the ensemble towards the observations
+\begin{align}
+  \mathrm{y}^b_{t+1}  &= H(\mathrm{x}_{t+1}^b)+\eta_{t+1}, \quad b = 1,\dots,B \\
+  \hat{\Sigma}_{yy,t} &= \hat{\text{Var}}(\mathrm{y}^b_{t+1}), \quad b = 1,\dots,B \\
+  \hat{\Sigma}_{xy,t} &= \hat{\text{Cov}}(\hat{\mathrm{x}}_{t+1}^b,\mathrm{y}^b_{t+1}), \quad b = 1,\dots,B \\
+  \mathrm{x}_{t+1}^b  &= \hat{\mathrm{x}}_{t+1}^b + \hat{\Sigma}_{xy,t} \hat{\Sigma}_{yy,t}^{-1} (y_{t+1} - \mathrm{y}^b_{t+1}), \quad b = 1,\dots,B
+\end{align}
+where $\hat{\text{Var}}$ and $\hat{\text{Cov}}$ denotes a variance estimator and covariance estimator, respectively. 
+
+```{r EnKF, fig.align='center', fig.height=4, fig.width=4}
 
 # Bookkeeping 
 B = 1000
@@ -195,15 +261,23 @@ plot(colMeans(ensembles[1,,]), colMeans(ensembles[2,,]), main="Filtered position
 
 lines(colQuantiles(ensembles[1,,],probs=0.025),colQuantiles(ensembles[2,,],probs=0.025))
 lines(colQuantiles(ensembles[1,,],probs=0.975),colQuantiles(ensembles[2,,],probs=0.975))
+```
 
+```{r EnKFplots, fig.align='center', fig.height=3.5}
+# Variance plots
 par(mfrow=c(1,2))
 plot(colVars(ensembles[1,,]), main="Filter position variances (east)",
      xlab="time", ylab="variance")
 plot(colVars(ensembles[2,,]), main="Filter position variances (north)",
      xlab="time", ylab="variance")
 
+# Velocity plots
 plot(colMeans(ensembles[3,,]), main="Filter velocity means (east)",
      xlab="time", ylab="velocity")
-plot(colMeans(ensembles[4,,]), main="Filter velocity means (east)",
+plot(colMeans(ensembles[4,,]), main="Filter velocity means (north)",
      xlab="time", ylab="velocity")
 ```
+
+
+The uncertainty range is now estimated as the 95% quantile from the ensemble in corresponding manner as before. The map view shows a great accordance with the EKF results. Also the velocities show a great similarity to the previous results, just the eastwards velocity between $t=20$ and $t=25$ is a bit smaller than in the EKF. However, in the estimated variance plots we observe the tendency to underestimate the variances from the ensemble. The qualitative results are the same. 
+
