@@ -211,7 +211,7 @@ where $\hat{\text{Var}}$ and $\hat{\text{Cov}}$ denotes a variance estimator and
 
 # Bookkeeping 
 B = 1000
-ensembles = array(0, dim=c(4,B,T))
+ensembles = array(0, dim=c(4,B,T+1))
 
 
 # DATA ASSIMILATION in time loop
@@ -221,6 +221,7 @@ for (t in 1:T){
   # NOTE: the initial prior is already given for the first observation time
   if (t == 1){
     ensemble_t = t(mvrnorm(B, mu=mu1, Sigma=Sigma1))
+    ensembles[,,t] = ensemble_t
   }
   else{
     # Forwarding single particle
@@ -247,7 +248,7 @@ for (t in 1:T){
   }
   
   # Storing
-  ensembles[,,t] = ensemble_t
+  ensembles[,,t+1] = ensemble_t
 }
 
 # Plotting
@@ -280,6 +281,80 @@ plot(colMeans(ensembles[4,,]), main="Filter velocity means (north)",
 
 The uncertainty range is now estimated as the 95% quantile from the ensemble in corresponding manner as before. The map view shows a great accordance with the EKF results. Also the velocities show a great similarity to the previous results, just the eastwards velocity between $t=20$ and $t=25$ is a bit smaller than in the EKF. However, in the estimated variance plots we observe the tendency to underestimate the variances from the ensemble. The qualitative results are the same. 
 
+```{r EnKF2, fig.align='center', fig.height=4, fig.width=4}
+
+# Bookkeeping 
+B = 100
+ensembles = array(0, dim=c(4,B,T+1))
+
+
+# DATA ASSIMILATION in time loop
+for (t in 1:T){
+  print(t)
+  ## Forward Step
+  # NOTE: the initial prior is already given for the first observation time
+  if (t == 1){
+    ensemble_t = t(mvrnorm(B, mu=mu1, Sigma=Sigma1))
+    ensembles[,,t] = ensemble_t
+  }
+  else{
+    # Forwarding single particle
+    ensemble_t = ModelStep(ensemble_t) + t(mvrnorm(B, mu=rep(0,4), Sigma=Eps_model))
+  }
+  ensemble_mean = rowMeans(ensemble_t)
+  
+  # Observing ensemble
+  y = t(obs[t,])
+  y_ensemble = matrix(0, nrow=2, ncol=B)
+  for (e in 1:B){
+    y_ensemble[,e] = Observation(ensemble_t[,e]) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
+  }
+  y_ensemble_mean = rowMeans(y_ensemble)
+  
+  # Estimating
+  Sigma_y = 1/B*(y_ensemble - y_ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
+  Sigma_xy = 1/B*(ensemble_t - ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
+  
+  
+  ## Analysis Step
+  for (e in 1:B){
+    ensemble_t[,e] = ensemble_t[,e] + Sigma_xy %*% solve(Sigma_y) %*% (y - y_ensemble[,e])
+  }
+  
+  # Storing
+  ensembles[,,t+1] = ensemble_t
+}
+
+# Plotting
+library(matrixStats)
+
+plot(colMeans(ensembles[1,,]), colMeans(ensembles[2,,]), main="Filtered position means",
+     xlab="East", ylab="North",
+     xlim=c(0,40), ylim=c(0,40),
+     col="red", type="l")
+
+lines(colQuantiles(ensembles[1,,],probs=0.025),colQuantiles(ensembles[2,,],probs=0.025))
+lines(colQuantiles(ensembles[1,,],probs=0.975),colQuantiles(ensembles[2,,],probs=0.975))
+```
+
+```{r EnKFplots2, fig.align='center', fig.height=3.5}
+# Variance plots
+par(mfrow=c(1,2))
+plot(colVars(ensembles[1,,]), main="Filter position variances (east)",
+     xlab="time", ylab="variance")
+plot(colVars(ensembles[2,,]), main="Filter position variances (north)",
+     xlab="time", ylab="variance")
+
+# Velocity plots
+plot(colMeans(ensembles[3,,]), main="Filter velocity means (east)",
+     xlab="time", ylab="velocity")
+plot(colMeans(ensembles[4,,]), main="Filter velocity means (north)",
+     xlab="time", ylab="velocity")
+```
+
+Also with only 100 ensemble members the EnKF works surprisingly well and the results are comparable to the previous once. 
+
+
 
 # Particle Filter
 
@@ -287,7 +362,7 @@ The uncertainty range is now estimated as the 95% quantile from the ensemble in 
 library(mvtnorm)
 
 # Bookkeeping 
-B = 1000
+B = 10000
 particles = array(0, dim=c(4,B,T+1))
 weights = array(0, dim=c(B,T+1))
 
@@ -331,5 +406,31 @@ plot(colSums(particles[1,,]*weights), colSums(particles[2,,]*weights), main="Fil
      xlim=c(0,40), ylim=c(0,40),
      col="red", type="l")
 
+E_bound_lower = array(0, dim=c(1,T+1))
+E_bound_upper = array(0, dim=c(1,T+1))
+for (t in 1:(T+1)){
+  particles_t = particles[1,,t]
+  weights_t_cumsum = cumsum(weights[order(particles_t),t])
+  E_idx_lower = length(weights_t_cumsum[weights_t_cumsum<0.025])
+  E_idx_upper = length(weights_t_cumsum[weights_t_cumsum<0.975])
+  particles_t = particles_t[order(particles_t)]
+  E_bound_lower[t] = particles_t[E_idx_lower]
+  E_bound_upper[t] = particles_t[E_idx_upper]
+}
+
+N_bound_lower = array(0, dim=c(1,T+1))
+N_bound_upper = array(0, dim=c(1,T+1))
+for (t in 1:(T+1)){
+  particles_t = particles[2,,t]
+  weights_t_cumsum = cumsum(weights[order(particles_t),t])
+  N_idx_lower = length(weights_t_cumsum[weights_t_cumsum<0.025])
+  N_idx_upper = length(weights_t_cumsum[weights_t_cumsum<0.975])
+  particles_t = particles_t[order(particles_t)]
+  N_bound_lower[t] = particles_t[N_idx_lower]
+  N_bound_upper[t] = particles_t[N_idx_upper]
+}
+
+lines(E_bound_lower,N_bound_lower)
+lines(E_bound_upper,N_bound_upper)
 
 ```
