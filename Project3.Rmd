@@ -358,11 +358,13 @@ Also with only 100 ensemble members the EnKF works surprisingly well and the res
 
 # Particle Filter
 
-```{r PF}
+See Hennings notes.
+
+```{r PF, fig.align='center', fig.height=4, fig.width=4}
 library(mvtnorm)
 
 # Bookkeeping 
-B = 10000
+B = 1000
 particles = array(0, dim=c(4,B,T+1))
 weights = array(0, dim=c(B,T+1))
 
@@ -401,13 +403,15 @@ for(t in 1:T){
   
 }
 
+# Map View
 plot(colSums(particles[1,,]*weights), colSums(particles[2,,]*weights), main="Filtered position means",
      xlab="East", ylab="North",
      xlim=c(0,40), ylim=c(0,40),
      col="red", type="l")
 
-E_bound_lower = array(0, dim=c(1,T+1))
-E_bound_upper = array(0, dim=c(1,T+1))
+# Uncertainty Bounds
+E_bound_lower = rep(0, T+1)
+E_bound_upper = rep(0, T+1)
 for (t in 1:(T+1)){
   particles_t = particles[1,,t]
   weights_t_cumsum = cumsum(weights[order(particles_t),t])
@@ -418,8 +422,8 @@ for (t in 1:(T+1)){
   E_bound_upper[t] = particles_t[E_idx_upper]
 }
 
-N_bound_lower = array(0, dim=c(1,T+1))
-N_bound_upper = array(0, dim=c(1,T+1))
+N_bound_lower = rep(0, T+1)
+N_bound_upper = rep(0, T+1)
 for (t in 1:(T+1)){
   particles_t = particles[2,,t]
   weights_t_cumsum = cumsum(weights[order(particles_t),t])
@@ -432,5 +436,31 @@ for (t in 1:(T+1)){
 
 lines(E_bound_lower,N_bound_lower)
 lines(E_bound_upper,N_bound_upper)
+```
+
+The map view shows clear similarity to the previous experiments. 
+
+```{r PFplots, fig.align='center', fig.height=3.5}
+# Variances
+E_variance = rep(0, T+1)
+N_variance = rep(0, T+1)
+for (t in 1:(T+1)){
+  E_variance[t] = t(particles[1,,t] - sum(particles[1,,t]*weights[,t]))%*%((particles[1,,t] - sum(particles[1,,t]*weights[,t]))*weights[,t])
+  N_variance[t] = t(particles[2,,t] - sum(particles[2,,t]*weights[,t]))%*%((particles[2,,t] - sum(particles[2,,t]*weights[,t]))*weights[,t])
+}
+
+par(mfrow=c(1,2))
+plot(E_variance, main="Filter position variances (east)",
+     xlab="time", ylab="variance")
+plot(N_variance, main="Filter position variances (north)",
+     xlab="time", ylab="variance")
+
+# Velocity plots
+plot(colSums(particles[3,,]*weights), main="Filter velocity means (east)",
+     xlab="time", ylab="velocity")
+plot(colSums(particles[4,,]*weights), main="Filter velocity means (north)",
+     xlab="time", ylab="velocity")
 
 ```
+
+Also the variances and velocities are similar to the previous insights, however, the variance is lower than in the other methods. 
