@@ -281,84 +281,30 @@ plot(colMeans(ensembles[4,,]), main="Filter velocity means (north)",
 
 The uncertainty range is now estimated as the 95% quantile from the ensemble in corresponding manner as before. The map view shows a great accordance with the EKF results. Also the velocities show a great similarity to the previous results, just the eastwards velocity between $t=20$ and $t=25$ is a bit smaller than in the EKF. However, in the estimated variance plots we observe the tendency to underestimate the variances from the ensemble. The qualitative results are the same. 
 
-```{r EnKF2, fig.align='center', fig.height=4, fig.width=4}
-
-# Bookkeeping 
-B = 100
-ensembles = array(0, dim=c(4,B,T+1))
-
-
-# DATA ASSIMILATION in time loop
-for (t in 1:T){
-  print(t)
-  ## Forward Step
-  # NOTE: the initial prior is already given for the first observation time
-  if (t == 1){
-    ensemble_t = t(mvrnorm(B, mu=mu1, Sigma=Sigma1))
-    ensembles[,,t] = ensemble_t
-  }
-  else{
-    # Forwarding single particle
-    ensemble_t = ModelStep(ensemble_t) + t(mvrnorm(B, mu=rep(0,4), Sigma=Eps_model))
-  }
-  ensemble_mean = rowMeans(ensemble_t)
-  
-  # Observing ensemble
-  y = t(obs[t,])
-  y_ensemble = matrix(0, nrow=2, ncol=B)
-  for (e in 1:B){
-    y_ensemble[,e] = Observation(ensemble_t[,e]) + mvrnorm(mu=rep(0,2), Sigma=Eps_obs)
-  }
-  y_ensemble_mean = rowMeans(y_ensemble)
-  
-  # Estimating
-  Sigma_y = 1/B*(y_ensemble - y_ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
-  Sigma_xy = 1/B*(ensemble_t - ensemble_mean) %*% t(y_ensemble - y_ensemble_mean)
-  
-  
-  ## Analysis Step
-  for (e in 1:B){
-    ensemble_t[,e] = ensemble_t[,e] + Sigma_xy %*% solve(Sigma_y) %*% (y - y_ensemble[,e])
-  }
-  
-  # Storing
-  ensembles[,,t+1] = ensemble_t
-}
-
-# Plotting
-library(matrixStats)
-
-plot(colMeans(ensembles[1,,]), colMeans(ensembles[2,,]), main="Filtered position means",
-     xlab="East", ylab="North",
-     xlim=c(0,40), ylim=c(0,40),
-     col="red", type="l")
-
-lines(colQuantiles(ensembles[1,,],probs=0.025),colQuantiles(ensembles[2,,],probs=0.025))
-lines(colQuantiles(ensembles[1,,],probs=0.975),colQuantiles(ensembles[2,,],probs=0.975))
-```
-
-```{r EnKFplots2, fig.align='center', fig.height=3.5}
-# Variance plots
-par(mfrow=c(1,2))
-plot(colVars(ensembles[1,,]), main="Filter position variances (east)",
-     xlab="time", ylab="variance")
-plot(colVars(ensembles[2,,]), main="Filter position variances (north)",
-     xlab="time", ylab="variance")
-
-# Velocity plots
-plot(colMeans(ensembles[3,,]), main="Filter velocity means (east)",
-     xlab="time", ylab="velocity")
-plot(colMeans(ensembles[4,,]), main="Filter velocity means (north)",
-     xlab="time", ylab="velocity")
-```
-
 Also with only 100 ensemble members the EnKF works surprisingly well and the results are comparable to the previous once. 
 
 
 
 # Particle Filter
 
-See Hennings notes.
+The Particle Filter (PF) also approximates the prior distribution by means of samples (so-called "particles"), but then calculates a full Bayesian update (instead of linear update in the KF-versions), thereby the filter originally relies on re-weighting of the particles instead of shifting. 
+
+For a set of particles $(\mathrm{x}_t^b)_{b=1}^{B}$ of size $B=1000$ which is at $t=1$ initialized from $\mathcal{N}(\mu_1,\Sigma_1)$ having all equal weights $(w_t^b)_{b=1}^B$ and again a step-wise procedure is employed to calculated the sequential posteriors. 
+
+In the forwarding step the particles are propagated using the model equations 
+\begin{align}
+  \hat{\mathrm{x}}_{t+1}^b &= \mathbf{A}\mathrm{x}_t + \eta_{t+1}, \quad b = 1,\dots,B
+\end{align}
+But then the conditioning differs from the previously seen approaches: The weights are reassessed using Bayes formula such that 
+\begin{align}
+  \hat{w}_{t+1}^b & = p(y_t|\hat{\mathrm{x}}_{t+1}^b)w_t^b
+\end{align}
+where we evaluate the likelihood which is in this case just a conditional Gaussian distribution given in the observation model. 
+To avoid the weights to degenerate also resampling is integrated into the sequential procedure where 
+\begin{align}
+  \mathrm{x}_{t+1}\sim Multinomial(\hat{\mathrm{x}}_{t+1},\hat{w}_{t+1})
+\end{align}
+what allows for resetting all weights at the end of every iteration. 
 
 ```{r PF, fig.align='center', fig.height=4, fig.width=4}
 library(mvtnorm)
