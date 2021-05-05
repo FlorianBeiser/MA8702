@@ -114,7 +114,7 @@ The forward step is given by
 \end{align}
 and the analysis step is given by
 \begin{align}
-  \mathbf{K}_{t+1} &= \hat{\Sigma}_{t+1} \mathbf{H}|_{x=\hat{\mu}_{t+1}} (\mathbf{H}|_{x=\hat{\mu}_{t+1}}\hat{\Sigma}_{t+1}\mathbf{H}|_{x=\hat{\mu}_{t+1}}^\top)^{-1}
+  \mathbf{K}_{t+1} &= \hat{\Sigma}_{t+1} \mathbf{H}|_{x=\hat{\mu}_{t+1}} (\mathbf{H}|_{x=\hat{\mu}_{t+1}}\hat{\Sigma}_{t+1}\mathbf{H}|_{x=\hat{\mu}_{t+1}}^\top)^{-1} \\
   \mu_{t+1} &= \hat{\mu}_{t+1} + \mathbf{K}_{t+1}(y_{t+1} - H(\hat{\mu}_{t+1})) \\
   \Sigma_{t+1} & = (\mathbf{Id}- \mathbf{K}_{t+1}\mathbf{H}|_{x=\hat{\mu}_{t+1}})\hat{\Sigma}_{t+1}
 \end{align}
@@ -138,7 +138,6 @@ Sigmas = array(0, dim=c(4,4,T))
 mu = mu1
 Sigma = Sigma1
 for (t in 1:T){
-  print(t)
   ## Forward Step
   # NOTE: the initial prior is already given for the first observation time
   if (t != 1){
@@ -216,7 +215,6 @@ ensembles = array(0, dim=c(4,B,T+1))
 
 # DATA ASSIMILATION in time loop
 for (t in 1:T){
-  print(t)
   ## Forward Step
   # NOTE: the initial prior is already given for the first observation time
   if (t == 1){
@@ -306,7 +304,7 @@ To avoid the weights to degenerate also resampling is integrated into the sequen
 \end{align}
 what allows for resetting all weights at the end of every iteration. 
 
-```{r PF, fig.align='center', fig.height=4, fig.width=4}
+```{r PF, fig.align='center', fig.height=4, fig.width=4, eval=FALSE, echo=FALSE}
 library(mvtnorm)
 
 # Bookkeeping 
@@ -316,7 +314,6 @@ weights = array(0, dim=c(B,T+1))
 
 # DATA ASSIMILATION in time loop
 for(t in 1:T){
-  print(t)
   ## Forwarding
   if (t==1){
     # Initialization of particles
@@ -386,7 +383,7 @@ lines(E_bound_upper,N_bound_upper)
 
 The map view shows clear similarity to the previous experiments. 
 
-```{r PFplots, fig.align='center', fig.height=3.5}
+```{r PFplots, fig.align='center', fig.height=3.5, eval=FALSE, echo=FALSE}
 # Variances
 E_variance = rep(0, T+1)
 N_variance = rep(0, T+1)
